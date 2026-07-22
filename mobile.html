@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#05050A">
+    <title>Cyber Dancer — Mobile</title>
+    <link rel="stylesheet" href="mobile.css">
+  </head>
+  <body>
+    <video autoplay muted loop playsinline id="bg-video">
+      <source src="img/stage.webm" type="video/webm">
+    </video>
+
+    <div id="menu">
+      <h2>Audio System</h2>
+      <p>Initialize Audio Track ( <i>.mp3</i>): </p>
+      <input type="file" id="audioFile" accept="audio/*">
+
+      <div class="section-box">
+        <p class="box-label" style="color: var(--cyan);">[ DIFFICULTY ]</p>
+        <div class="selector-container" id="difficulty-container">
+          <button class="selector-btn" data-diff="easy">Crew</button>
+          <button class="selector-btn active" data-diff="medium">Manager</button>
+          <button class="selector-btn" data-diff="hard">Boss</button>
+        </div>
+      </div>
+
+      <div class="section-box">
+        <p class="box-label" style="color: var(--cyan);">[ DROP SPEED ]</p>
+        <div class="selector-container" id="speed-container">
+          <button class="selector-btn" data-speed="2">2x</button>
+          <button class="selector-btn active" data-speed="3">3x</button>
+          <button class="selector-btn" data-speed="4">4x</button>
+          <button class="selector-btn" data-speed="5">5x</button>
+          <button class="selector-btn" data-speed="6">6x</button>
+        </div>
+      </div>
+
+      <div id="song-metadata">
+        <p class="meta-full"><strong>ARTIST:</strong> <span id="metaArtist">-</span></p>
+        <p class="meta-full"><strong>TRACK:</strong> <span id="metaTitle">-</span></p>
+        <p><strong>DUR:</strong> <span id="metaDuration">-</span></p>
+        <p><strong>BPM:</strong> <span id="metaBpm">-</span></p>
+        <p><strong>TIER:</strong> <span id="metaDiff">Manager</span></p>
+        <p><strong>NOTES:</strong> <span id="metaNotes">0</span></p>
+      </div>
+
+      <div class="section-box touch-hint">
+        <p class="box-label" style="color: var(--pink); margin-bottom: 2px;">[ CONTROLS ]</p>
+        <p style="margin: 0; font-size: 12px;">Tap or swipe across the 4 lanes at the bottom of the screen in time with the arrows. No keyboard needed.</p>
+      </div>
+
+      <button class="primary-btn" id="startBtn" disabled>INITIALIZE UPLINK</button>
+      <button class="secondary-btn" id="menuFullscreenBtn" type="button">⛶ ENTER FULLSCREEN</button>
+      <a href="index.html" id="desktopLink" class="mode-link" onclick="try{localStorage.setItem('cd_forceDesktop','1')}catch(e){}">Switch to Desktop Layout →</a>
+    </div>
+
+    <div id="results-screen">
+      <h2 id="resTitle" style="color: var(--cyan);">AUDITION CLEARED</h2>
+      <div class="trophy-icon" id="resIcon">🏆</div>
+      <div class="results-score-row">
+        <div style="text-align: center;">
+          <p class="mini-label">FINAL SCORE</p>
+          <span id="resScore" class="score-value">0</span>
+        </div>
+        <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+          <p class="mini-label" style="font-size: 9px;">RATING</p>
+          <div class="rank-badge"><span id="resRank">S</span></div>
+        </div>
+      </div>
+      <div class="results-stats">
+        <p>MAX COMBO: <span id="resMaxCombo">0</span></p>
+        <p>PERFECT: <span id="resPerfect">0</span></p>
+        <p>GOOD: <span id="resGood" style="color: var(--purple);">0</span></p>
+        <p>SYSTEM MISS: <span id="resMiss" style="color: #ff4757;">0</span></p>
+      </div>
+      <button class="primary-btn" id="menuBtn">DISCONNECT</button>
+    </div>
+
+    <div id="pause-screen">
+      <h2 style="color: var(--pink);">SYSTEM PAUSED</h2>
+      <p style="color: var(--text-muted); font-size: 12px; margin: 8px 0 16px 0; font-family: 'Orbitron';">AWAITING INPUT...</p>
+      <button class="primary-btn" id="resumeBtn" style="margin-bottom: 10px; background: linear-gradient(90deg, var(--cyan), var(--purple));">RESUME LINK</button>
+      <button class="primary-btn" id="quitBtn" style="background: rgba(0,0,0,0.8); border: 1px solid #ff4757; color: #ff4757;">ABORT MISSION</button>
+    </div>
+
+    <div id="game-container">
+      <div id="mobile-hud">
+        <button id="hudPauseBtn" aria-label="Pause">❚❚</button>
+        <button id="hudFullscreenBtn" aria-label="Fullscreen">⛶</button>
+        <div id="hudLifeWrap"><div id="hudLifeFill"></div></div>
+        <div id="hudScoreWrap">
+          <span id="hudScore">0</span>
+          <span id="hudCombo">0x</span>
+        </div>
+      </div>
+      <div id="hudProgressWrap">
+        <div id="hudProgressFill"></div>
+        <span id="hudTimeLeft">0:00</span>
+      </div>
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script src="mobile.js"></script>
+  </body>
+</html>

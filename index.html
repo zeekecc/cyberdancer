@@ -1,6 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script>
+      // Redirect touch/narrow devices to the mobile-optimized build before
+      // the desktop layout (blurred sidebar, fixed canvas) has a chance to paint.
+      (function () {
+        try {
+          if (localStorage.getItem('cd_forceDesktop') === '1') return;
+          var coarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+          var narrow = window.innerWidth <= 1024;
+          var uaMobile = /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
+          if (uaMobile || (coarsePointer && narrow)) {
+            location.replace('mobile.html');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cyber Dancer</title>
@@ -78,6 +93,9 @@
         </div>
       </div>
       <button class="primary-btn" id="startBtn" disabled>INITIALIZE UPLINK</button>
+      <p style="margin-top: 10px;">
+        <a href="mobile.html" style="color: var(--text-muted); font-size: 11px; font-family: 'Orbitron'; letter-spacing: 1px; text-decoration: none;">Switch to Mobile Layout →</a>
+      </p>
     </div>
     <div id="results-screen">
       <h2 id="resTitle" style="color: var(--cyan);">AUDITION CLEARED</h2>
