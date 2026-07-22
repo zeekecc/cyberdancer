@@ -83,4 +83,4 @@ Issues and pull requests are welcome — whether it's chart-generation tuning, n
 
 ## 📄 License
 
-Add your preferred license here (e.g. MIT) before publishing.
+MIT.
