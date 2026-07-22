@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cyber Dancer</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <div id="menu">
+      <h2>Audio System</h2>
+      <p>Initialize Audio Track ( <i>.mp3</i>): </p>
+      <input type="file" id="audioFile" accept="audio/*">
+      <div class="section-box">
+        <p style="margin: 0 0 4px 0; font-family: 'Orbitron'; font-size: 10px; color: var(--cyan);">[ DIFFICULTY ]</p>
+        <div class="selector-container" id="difficulty-container">
+          <button class="selector-btn" data-diff="easy">Crew</button>
+          <button class="selector-btn active" data-diff="medium">Manager</button>
+          <button class="selector-btn" data-diff="hard">Boss</button>
+        </div>
+      </div>
+      <div class="section-box">
+        <p style="margin: 0 0 4px 0; font-family: 'Orbitron'; font-size: 10px; color: var(--cyan);">[ DROP SPEED ]</p>
+        <div class="selector-container" id="speed-container">
+          <button class="selector-btn" data-speed="2">2x</button>
+          <button class="selector-btn active" data-speed="3">3x</button>
+          <button class="selector-btn" data-speed="4">4x</button>
+          <button class="selector-btn" data-speed="5">5x</button>
+          <button class="selector-btn" data-speed="6">6x</button>
+        </div>
+      </div>
+      <div id="song-metadata">
+        <p class="meta-full">
+          <strong>ARTIST:</strong>
+          <span id="metaArtist">-</span>
+        </p>
+        <p class="meta-full">
+          <strong>TRACK:</strong>
+          <span id="metaTitle">-</span>
+        </p>
+        <p>
+          <strong>DUR:</strong>
+          <span id="metaDuration">-</span>
+        </p>
+        <p>
+          <strong>BPM:</strong>
+          <span id="metaBpm">-</span>
+        </p>
+        <p>
+          <strong>TIER:</strong>
+          <span id="metaDiff">Manager</span>
+        </p>
+        <p>
+          <strong>NOTES:</strong>
+          <span id="metaNotes">0</span>
+        </p>
+      </div>
+      <div class="section-box">
+        <p style="margin: 0 0 4px 0; font-family: 'Orbitron'; font-size: 10px; color: var(--pink);">[ KEYBINDINGS (OR TAP LANES ON MOBILE) ]</p>
+        <div class="keybind-row">
+          <span>LANE 1:</span>
+          <button class="keybind-btn" data-lane="0" id="kb-0">A</button>
+        </div>
+        <div class="keybind-row">
+          <span>LANE 2:</span>
+          <button class="keybind-btn" data-lane="1" id="kb-1">S</button>
+        </div>
+        <div class="keybind-row">
+          <span>LANE 3:</span>
+          <button class="keybind-btn" data-lane="2" id="kb-2">K</button>
+        </div>
+        <div class="keybind-row">
+          <span>LANE 4:</span>
+          <button class="keybind-btn" data-lane="3" id="kb-3">L</button>
+        </div>
+      </div>
+      <button class="primary-btn" id="startBtn" disabled>INITIALIZE UPLINK</button>
+    </div>
+    <div id="results-screen">
+      <h2 id="resTitle" style="color: var(--cyan);">AUDITION CLEARED</h2>
+      <div class="trophy-icon" id="resIcon">🏆</div>
+      <div class="results-score-row">
+        <div style="text-align: center;">
+          <p style="margin: 2px 0; font-size: 11px; font-family: 'Orbitron'; color: var(--text-muted);">FINAL SCORE</p>
+          <span id="resScore" style="font-size: 26px; font-family: 'Orbitron'; font-weight: 900; color: var(--cyan);">0</span>
+        </div>
+        <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+          <p style="margin: 2px 0; font-size: 9px; font-family: 'Orbitron'; color: var(--text-muted);">RATING</p>
+          <div class="rank-badge">
+            <span id="resRank">S</span>
+          </div>
+        </div>
+      </div>
+      <div class="results-stats">
+        <p>MAX COMBO: <span id="resMaxCombo">0</span>
+        </p>
+        <p>PERFECT: <span id="resPerfect">0</span>
+        </p>
+        <p>GOOD: <span id="resGood" style="color: var(--purple);">0</span>
+        </p>
+        <p>SYSTEM MISS: <span id="resMiss" style="color: #ff4757;">0</span>
+        </p>
+      </div>
+      <button class="primary-btn" id="menuBtn">DISCONNECT</button>
+    </div>
+    <div id="pause-screen">
+      <h2 style="color: var(--pink);">SYSTEM PAUSED</h2>
+      <p style="color: var(--text-muted); font-size: 12px; margin: 8px 0 16px 0; font-family: 'Orbitron';">AWAITING INPUT...</p>
+      <button class="primary-btn" id="resumeBtn" style="margin-bottom: 10px; background: linear-gradient(90deg, var(--cyan), var(--purple));">RESUME LINK</button>
+      <button class="primary-btn" id="quitBtn" style="background: rgba(0,0,0,0.8); border: 1px solid #ff4757; color: #ff4757;">ABORT MISSION</button>
+    </div>
+    <div id="game-container">
+      <div id="sidebar-panel">
+        <div class="sidebar-card">
+          <h4>DATA STREAM</h4>
+          <p id="sidebar-track-name" style="font-weight: 700; color: #fff; font-size: 13px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</p>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+            <span style="color: var(--text-muted); font-size: 11px; font-family: 'Orbitron';">TEMPO</span>
+            <span style="color: var(--cyan); font-weight: 700; font-family: 'Orbitron';">
+              <span id="sidebar-bpm">0</span> BPM </span>
+          </div>
+        </div>
+        <div class="sidebar-card">
+          <h4>TIMELINE</h4>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; font-family: 'Orbitron'; margin-top: 2px;">
+            <span id="sidebar-time-left" style="font-weight: bold; color: var(--text-main);">0:00</span>
+            <span id="sidebar-duration" style="color: var(--text-muted);">0:00</span>
+          </div>
+          <div id="sidebar-progress-wrapper">
+            <div id="sidebar-progress-fill"></div>
+          </div>
+        </div>
+        <div class="sidebar-card">
+          <h4>INTEGRITY</h4>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; font-family: 'Orbitron'; margin-top: 2px;">
+            <span style="font-weight: bold; color: var(--text-main);">STATUS</span>
+            <span id="sidebar-life-val" style="font-weight: bold; color: var(--cyan);">100%</span>
+          </div>
+          <div id="sidebar-life-wrapper">
+            <div id="sidebar-life-fill"></div>
+          </div>
+        </div>
+        <div class="sidebar-card" style="display: flex; align-items: center; justify-content: center; cursor: pointer;" onclick="togglePause()">
+          <h4 style="margin: 0; color: var(--pink);">[ PAUSE / MENU ]</h4>
+        </div>
+      </div>
+      <div class="game-area-wrapper">
+        <canvas id="gameCanvas" width="600" height="950"></canvas>
+      </div>
+    </div>
+    <script src="game.js"></script>
+  </body>
+</html>
