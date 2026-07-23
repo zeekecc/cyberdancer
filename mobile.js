@@ -39,17 +39,17 @@ function initParticleCanvas() {
 window.addEventListener('resize', initParticleCanvas);
 initParticleCanvas();
 
-function spawnParticles(x, y, color, count = 8) {
+function spawnParticles(x, y, color, count = 6) {
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * 2 * Math.PI;
-    const speed = 80 + Math.random() * 120;
-    const size = 2 + Math.random() * 4;
+    const speed = 60 + Math.random() * 100;
+    const size = 3 + Math.random() * 4;
     particles.push({
       x, y,
       vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 30,
+      vy: Math.sin(angle) * speed - 20,
       life: 1,
-      decay: 0.02 + Math.random() * 0.03,
+      decay: 0.025 + Math.random() * 0.03,
       size,
       color: color || `hsl(${Math.random() * 360}, 80%, 70%)`,
     });
@@ -61,7 +61,7 @@ function updateParticles(delta) {
     const p = particles[i];
     p.x += p.vx * delta;
     p.y += p.vy * delta;
-    p.vy += 120 * delta;
+    p.vy += 100 * delta;
     p.life -= p.decay;
     if (p.life <= 0) particles.splice(i, 1);
   }
@@ -70,7 +70,7 @@ function updateParticles(delta) {
 function drawParticles() {
   particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
   for (const p of particles) {
-    particleCtx.globalAlpha = p.life * 0.5;
+    particleCtx.globalAlpha = p.life * 0.4;
     particleCtx.fillStyle = p.color;
     particleCtx.beginPath();
     particleCtx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
@@ -174,7 +174,6 @@ if (colorSchemeSelect) {
     const scheme = e.target.value;
     ARROW_COLORS = COLOR_SCHEMES[scheme] || COLOR_SCHEMES.cyber;
     updateColorPreview(scheme);
-    if (typeof drawArcadeArrow !== 'undefined' && drawArcadeArrow.cache) drawArcadeArrow.cache = {};
   });
   updateColorPreview(colorSchemeSelect.value);
 }
@@ -518,7 +517,6 @@ function resizeCanvas() {
   canvas.height = Math.round(cssH * dpr);
   LANE_WIDTH = canvas.width / LANE_COUNT;
   RECEPTOR_Y = canvas.height - BOTTOM_MARGIN_CSS * dpr;
-  drawArcadeArrow.cache = {};
 }
 
 let resizeTimer = null;
@@ -761,7 +759,7 @@ function registerHit(note, grade, points, type, early) {
     triggerComboFlash();
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight / 2;
-    spawnParticles(cx, cy, null, 15);
+    spawnParticles(cx, cy, null, 12);
     milestoneEffects.push({ text: combo + ' COMBO!', progress: 0, lifetime: 60, scale: 0.5 });
   }
 }
@@ -825,11 +823,8 @@ function gameLoop(timestamp) {
     updateParticles(delta);
     drawParticles();
 
-    // Clear canvas with transparent background so video shows through
+    // Clear canvas to transparent so video shows through
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // Optional faint dark overlay to keep readability (very low opacity)
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     let elapsed = (timestamp - phaseStartTime) / 1000;
     if (gamePhase === 'countdown') {
@@ -841,7 +836,7 @@ function gameLoop(timestamp) {
       ctx.textAlign = 'center';
       ctx.font = '900 ' + Math.round(canvas.width * 0.13) + 'px "Orbitron", sans-serif';
       ctx.strokeStyle = '#20E8FF';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3;
       ctx.globalAlpha = 0.6;
       let num = Math.ceil(timeLeft);
       ctx.strokeText(num > 0 ? num : 1, canvas.width / 2, canvas.height / 2);
@@ -891,115 +886,77 @@ function gameLoop(timestamp) {
   if (gamePhase !== 'results') requestAnimationFrame(gameLoop);
 }
 
+// Simplified arrow drawing: thick, solid, no dots, no shadows
+function drawArrowShape(ctx, cx, cy, size, color, strokeColor, lineWidth, isPressed) {
+  const w = size * 0.9;
+  const h = size * 0.9;
+  const stem = w * 0.3;
+  const head = h * 0.45;
+  const headW = w * 0.6;
+
+  ctx.beginPath();
+  ctx.moveTo(0, -h / 2);
+  ctx.lineTo(headW, -h / 2 + head);
+  ctx.lineTo(stem, -h / 2 + head);
+  ctx.lineTo(stem, h / 2);
+  ctx.lineTo(-stem, h / 2);
+  ctx.lineTo(-stem, -h / 2 + head);
+  ctx.lineTo(-headW, -h / 2 + head);
+  ctx.closePath();
+
+  // fill with color
+  ctx.fillStyle = color;
+  ctx.fill();
+  // thick outline
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+}
+
 function drawUI() {
   for (let i = 0; i < LANE_COUNT; i++) {
     let xPos = i * LANE_WIDTH;
     let width = LANE_WIDTH;
     let isPressedActive = pressedLanes[i] && gamePhase === 'playing';
+
+    // lane background glow (very subtle)
     if (isPressedActive) {
       ctx.save();
       let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
       grad.addColorStop(0, 'rgba(255,255,255,0)');
       grad.addColorStop(1, ARROW_COLORS[i]);
-      ctx.globalAlpha = 0.08;
+      ctx.globalAlpha = 0.06;
       ctx.fillStyle = grad;
       ctx.fillRect(xPos, 0, width, canvas.height);
       ctx.restore();
     }
+
+    // receptor box (thinner, more transparent)
     ctx.save();
-    ctx.strokeStyle = isPressedActive ? ARROW_COLORS[i] : 'rgba(255,255,255,0.2)';
+    ctx.strokeStyle = isPressedActive ? ARROW_COLORS[i] : 'rgba(255,255,255,0.15)';
     ctx.lineWidth = isPressedActive ? 2 : 1;
-    ctx.fillStyle = isPressedActive ? 'rgba(0,0,0,0.3)' : 'rgba(30,28,48,0.3)';
+    ctx.fillStyle = isPressedActive ? 'rgba(0,0,0,0.2)' : 'rgba(30,28,48,0.2)';
     ctx.fillRect(xPos + 6, RECEPTOR_Y - 32, width - 12, 64);
     ctx.strokeRect(xPos + 6, RECEPTOR_Y - 32, width - 12, 64);
-    // Draw arrow with lower opacity
+    ctx.restore();
+
+    // draw arrow with simplified function
+    const arrowSize = Math.min(width - 12, 64) * 0.7;
+    const cx = xPos + width / 2;
+    const cy = RECEPTOR_Y;
+    const color = isPressedActive ? ARROW_COLORS[i] : 'rgba(255,255,255,0.2)';
+    const stroke = isPressedActive ? '#ffffff' : 'rgba(255,255,255,0.3)';
+    const lw = isPressedActive ? 4 : 2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    // rotate based on lane
+    const rotation = (i === 0 ? -Math.PI / 2 : (i === 1 ? Math.PI : (i === 2 ? 0 : Math.PI / 2)));
+    ctx.rotate(rotation);
     ctx.globalAlpha = 0.5;
-    drawArcadeArrow(ctx, xPos + 6, RECEPTOR_Y - 32, width - 12, 64, i, isPressedActive ? ARROW_COLORS[i] : 'rgba(255,255,255,0.1)', isPressedActive ? '#ffffff' : 'rgba(255,255,255,0.3)', true, false);
-    ctx.globalAlpha = 1;
+    drawArrowShape(ctx, 0, 0, arrowSize, color, stroke, lw, isPressedActive);
     ctx.restore();
   }
-}
-
-function drawArcadeArrow(ctx, x, y, width, height, lane, fillColor, strokeColor, isReceptor = false, isHitFlash = false) {
-  drawArcadeArrow.cache = drawArcadeArrow.cache || {};
-  const isUnpressedReceptor = isReceptor && fillColor === 'rgba(255,255,255,0.1)';
-  const state = isUnpressedReceptor ? 'unpressed' : (isReceptor ? 'pressed' : (isHitFlash ? 'flash' : 'normal'));
-  const wKey = Math.round(width);
-  const hKey = Math.round(height);
-  const cacheKey = `${lane}_${state}_${wKey}_${hKey}`;
-  const padding = 40;
-  const canvasSize = Math.max(wKey, hKey) + padding * 2;
-
-  if (!drawArcadeArrow.cache[cacheKey]) {
-    const offscreen = document.createElement('canvas');
-    offscreen.width = canvasSize;
-    offscreen.height = canvasSize;
-    const octx = offscreen.getContext('2d');
-    octx.translate(canvasSize / 2, canvasSize / 2);
-
-    let rotation = (lane === 0 ? -Math.PI / 2 : (lane === 1 ? Math.PI : (lane === 2 ? 0 : Math.PI / 2)));
-    octx.rotate(rotation);
-
-    let boxSize = Math.min(width, height) * 0.85;
-    let w = boxSize;
-    let h = boxSize;
-
-    const traceArrow = () => {
-      const stem = w * 0.28;
-      const head = h * 0.42;
-      const headW = w * 0.58;
-      octx.beginPath();
-      octx.moveTo(0, -h / 2);
-      octx.lineTo(headW, -h / 2 + head);
-      octx.lineTo(stem, -h / 2 + head);
-      octx.lineTo(stem, h / 2);
-      octx.lineTo(-stem, h / 2);
-      octx.lineTo(-stem, -h / 2 + head);
-      octx.lineTo(-headW, -h / 2 + head);
-      octx.closePath();
-    };
-
-    const baseColor = ARROW_COLORS[lane];
-    const glowColor = isHitFlash ? '#ffffff' : baseColor;
-
-    octx.lineJoin = 'round';
-    octx.lineCap = 'round';
-
-    octx.save();
-    traceArrow();
-    octx.clip();
-    octx.fillStyle = isUnpressedReceptor ? 'rgba(35,30,55,0.4)' : 'rgba(10,5,20,0.5)';
-    octx.fill();
-
-    octx.fillStyle = glowColor;
-    const dotSpacing = 5;
-    const dotSize = 2;
-    octx.globalAlpha = isUnpressedReceptor ? 0.1 : (isHitFlash ? 0.8 : 0.4);
-    for (let dx = -w; dx <= w; dx += dotSpacing) { for (let dy = -h; dy <= h; dy += dotSpacing) { octx.fillRect(dx - dotSize / 2, dy - dotSize / 2, dotSize, dotSize); } }
-    octx.restore();
-
-    if (!isUnpressedReceptor && (isReceptor || isHitFlash)) {
-      octx.shadowBlur = isHitFlash ? 15 : 8;
-      octx.shadowColor = glowColor;
-    } else {
-      octx.shadowBlur = 0;
-    }
-
-    traceArrow();
-    octx.lineWidth = 5;
-    octx.strokeStyle = isUnpressedReceptor ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.3)';
-    octx.stroke();
-
-    octx.lineWidth = 2;
-    if (isUnpressedReceptor) octx.strokeStyle = 'rgba(255,255,255,0.2)';
-    else if (isReceptor) octx.strokeStyle = '#ffffff';
-    else octx.strokeStyle = strokeColor;
-    octx.stroke();
-
-    drawArcadeArrow.cache[cacheKey] = offscreen;
-  }
-
-  ctx.drawImage(drawArcadeArrow.cache[cacheKey], (x + width / 2) - (canvasSize / 2), (y + height / 2) - (canvasSize / 2));
 }
 
 function updateAndDrawNotes(currentSongTime) {
@@ -1039,7 +996,7 @@ function updateAndDrawNotes(currentSongTime) {
         const scaleY = rect.height / canvas.height;
         const screenX = rect.left + (note.lane * LANE_WIDTH + LANE_WIDTH / 2) * scaleX;
         const screenY = rect.top + RECEPTOR_Y * scaleY;
-        spawnParticles(screenX, screenY, ARROW_COLORS[note.lane], 8);
+        spawnParticles(screenX, screenY, ARROW_COLORS[note.lane], 6);
         spawnHoldLabel(screenX, screenY, 'HOLD COMPLETE');
 
         continue;
@@ -1049,11 +1006,11 @@ function updateAndDrawNotes(currentSongTime) {
       let remaining = (holdEndTime - currentSongTime) * scrollSpeed;
       ctx.save();
       let holdGrad = ctx.createLinearGradient(0, RECEPTOR_Y, 0, RECEPTOR_Y - remaining);
-      holdGrad.addColorStop(0, 'rgba(255,255,255,0.5)');
-      holdGrad.addColorStop(0.2, ARROW_COLORS[note.lane] + '66');
+      holdGrad.addColorStop(0, 'rgba(255,255,255,0.3)');
+      holdGrad.addColorStop(0.2, ARROW_COLORS[note.lane] + '44');
       holdGrad.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = holdGrad;
-      ctx.globalAlpha = 0.4;
+      ctx.globalAlpha = 0.3;
       ctx.fillRect(xPos + width / 4, RECEPTOR_Y - remaining, width / 2, remaining);
       ctx.restore();
       continue;
@@ -1061,9 +1018,16 @@ function updateAndDrawNotes(currentSongTime) {
 
     if (note.hit) {
       if (note.hitAnim > 0) {
-        ctx.globalAlpha = 0.7;
-        drawArcadeArrow(ctx, (note.lane * LANE_WIDTH) + 6, RECEPTOR_Y - 32, LANE_WIDTH - 12, 64, note.lane, '#ffffff', ARROW_COLORS[note.lane], false, true);
-        ctx.globalAlpha = 1;
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        const arrowSize = Math.min(LANE_WIDTH - 12, 64) * 0.7;
+        const cx = note.lane * LANE_WIDTH + LANE_WIDTH / 2;
+        const cy = RECEPTOR_Y;
+        ctx.translate(cx, cy);
+        const rotation = (note.lane === 0 ? -Math.PI / 2 : (note.lane === 1 ? Math.PI : (note.lane === 2 ? 0 : Math.PI / 2)));
+        ctx.rotate(rotation);
+        drawArrowShape(ctx, 0, 0, arrowSize, '#ffffff', ARROW_COLORS[note.lane], 5, true);
+        ctx.restore();
         note.hitAnim--;
       }
       continue;
@@ -1081,16 +1045,24 @@ function updateAndDrawNotes(currentSongTime) {
         let tailPixelLength = note.holdDuration * scrollSpeed;
         ctx.save();
         let holdGrad = ctx.createLinearGradient(0, noteY, 0, noteY - tailPixelLength);
-        holdGrad.addColorStop(0, ARROW_COLORS[note.lane] + '88');
+        holdGrad.addColorStop(0, ARROW_COLORS[note.lane] + '55');
         holdGrad.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = holdGrad;
-        ctx.globalAlpha = 0.3;
+        ctx.globalAlpha = 0.25;
         ctx.fillRect(xPos + width / 4, noteY - tailPixelLength, width / 2, tailPixelLength);
         ctx.restore();
       }
-      ctx.globalAlpha = 0.6;
-      drawArcadeArrow(ctx, (note.lane * LANE_WIDTH) + 6, noteY - 32, LANE_WIDTH - 12, 64, note.lane, ARROW_COLORS[note.lane], '#ffffff', false, false);
-      ctx.globalAlpha = 1;
+      // draw note arrow
+      ctx.save();
+      ctx.globalAlpha = 0.4;
+      const arrowSize = Math.min(LANE_WIDTH - 12, 64) * 0.6;
+      const cx = note.lane * LANE_WIDTH + LANE_WIDTH / 2;
+      const cy = noteY;
+      ctx.translate(cx, cy);
+      const rotation = (note.lane === 0 ? -Math.PI / 2 : (note.lane === 1 ? Math.PI : (note.lane === 2 ? 0 : Math.PI / 2)));
+      ctx.rotate(rotation);
+      drawArrowShape(ctx, 0, 0, arrowSize, ARROW_COLORS[note.lane], '#ffffff', 3, false);
+      ctx.restore();
     }
   }
 }
@@ -1100,9 +1072,9 @@ function drawHoldEffects() {
     const ef = holdEffects[i];
     ef.progress += 1 / ef.lifetime;
     const alpha = 1 - ef.progress;
-    const radius = 20 + ef.progress * 40;
+    const radius = 20 + ef.progress * 30;
     ctx.save();
-    ctx.globalAlpha = alpha * 0.3;
+    ctx.globalAlpha = alpha * 0.25;
     ctx.strokeStyle = ef.color;
     ctx.lineWidth = 3 * (1 - ef.progress * 0.5);
     ctx.beginPath();
@@ -1120,12 +1092,11 @@ function drawMilestoneEffects() {
     const alpha = 1 - ef.progress;
     const scale = 0.5 + ef.progress * 1.5;
     ctx.save();
-    ctx.globalAlpha = alpha * 0.7;
+    ctx.globalAlpha = alpha * 0.6;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const fontSize = 40 * scale;
     ctx.font = `900 ${fontSize}px "Orbitron", sans-serif`;
-    ctx.shadowBlur = 0;
     const grad = ctx.createLinearGradient(0, canvas.height / 2 - 100, 0, canvas.height / 2 + 100);
     grad.addColorStop(0, '#ffffff');
     grad.addColorStop(1, '#20E8FF');
@@ -1149,8 +1120,7 @@ function drawJudgment() {
     else if (feedbackText === "GOOD") color = lastHitEarly ? "#FFD700" : "#FF4757";
     else if (feedbackText === "SYNCED!") color = "#FF3ED8";
     else color = "#ff4757";
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 0.7;
+    ctx.globalAlpha = 0.6;
     ctx.fillStyle = color;
     ctx.fillText(feedbackText, 0, 0);
     ctx.restore();
@@ -1165,17 +1135,16 @@ function drawCombo() {
     if (comboAnim > 0) comboAnim--;
     ctx.translate(canvas.width / 2, canvas.height * 0.28);
     ctx.scale(1 + (comboAnim / 15) * 0.25, 1 + (comboAnim / 15) * 0.25);
-    ctx.shadowBlur = 0;
     ctx.font = "900 " + Math.round(canvas.width * 0.2) + "px 'Orbitron', sans-serif";
     let grad = ctx.createLinearGradient(0, -50, 0, 20);
     grad.addColorStop(0, '#ffffff');
     grad.addColorStop(1, '#20E8FF');
-    ctx.globalAlpha = 0.7;
+    ctx.globalAlpha = 0.6;
     ctx.fillStyle = grad;
     ctx.fillText(combo, 0, 0);
     ctx.font = "700 " + Math.round(canvas.width * 0.04) + "px 'Rajdhani', sans-serif";
     ctx.fillStyle = "#FF3ED8";
-    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.7;
     ctx.fillText("CHAIN LINK", 0, canvas.width * 0.1);
     ctx.restore();
   }
