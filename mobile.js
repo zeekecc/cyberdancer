@@ -1149,16 +1149,18 @@ function updateAndDrawNotes(currentSongTime) {
         var xPos = (note.lane * LANE_WIDTH) + 6;
         var width = LANE_WIDTH - 12;
         var tailPixelLength = note.holdDuration * scrollSpeed;
-        var tailEnd = Math.min(noteY + tailPixelLength, RECEPTOR_Y);
-        var tailHeight = tailEnd - noteY;
+        var tailStart = noteY - tailPixelLength;
+        var tailEnd = noteY;
+        var tailHeight = tailEnd - tailStart;
         if (tailHeight > 0) {
           ctx.save();
-          var holdGrad = ctx.createLinearGradient(0, noteY, 0, tailEnd);
-          holdGrad.addColorStop(0, ARROW_COLORS[note.lane]);
-          holdGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          var holdGrad = ctx.createLinearGradient(0, tailStart, 0, tailEnd);
+          holdGrad.addColorStop(0, 'rgba(0,0,0,0)');
+          holdGrad.addColorStop(0.2, ARROW_COLORS[note.lane]);
+          holdGrad.addColorStop(1, ARROW_COLORS[note.lane]);
           ctx.fillStyle = holdGrad;
           ctx.globalAlpha = 0.5;
-          ctx.fillRect(xPos + width / 4, noteY, width / 2, tailHeight);
+          ctx.fillRect(xPos + width / 4, tailStart, width / 2, tailHeight);
           ctx.restore();
         }
       }
