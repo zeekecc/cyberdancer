@@ -8,7 +8,7 @@ const resumeBtn = document.getElementById('resumeBtn');
 const quitBtn = document.getElementById('quitBtn');
 const gameContainer = document.getElementById('game-container');
 const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
 const songMetadataBox = document.getElementById('song-metadata');
 const playlistListEl = document.getElementById('playlist-list');
 const playlistDropdown = document.getElementById('playlist-dropdown');
@@ -823,8 +823,12 @@ function gameLoop(timestamp) {
     updateParticles(delta);
     drawParticles();
 
-    // Clear canvas to transparent so video shows through
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw opaque background (solid dark gradient)
+    let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    grad.addColorStop(0, 'rgb(5, 5, 10)');
+    grad.addColorStop(1, 'rgb(15, 10, 25)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     let elapsed = (timestamp - phaseStartTime) / 1000;
     if (gamePhase === 'countdown') {
@@ -837,7 +841,6 @@ function gameLoop(timestamp) {
       ctx.font = '900 ' + Math.round(canvas.width * 0.13) + 'px "Orbitron", sans-serif';
       ctx.strokeStyle = '#20E8FF';
       ctx.lineWidth = 3;
-      ctx.globalAlpha = 0.6;
       let num = Math.ceil(timeLeft);
       ctx.strokeText(num > 0 ? num : 1, canvas.width / 2, canvas.height / 2);
       ctx.restore();
@@ -850,7 +853,6 @@ function gameLoop(timestamp) {
       ctx.textAlign = 'center';
       ctx.font = '900 ' + Math.round(canvas.width * 0.045) + 'px "Orbitron", sans-serif';
       ctx.fillStyle = timeLeft > 1.0 ? '#FF3ED8' : '#20E8FF';
-      ctx.globalAlpha = 0.7;
       ctx.fillText(timeLeft > 1.0 ? "SYSTEM LOADING" : "LINKED", canvas.width / 2, canvas.height / 2);
       ctx.restore();
       if (timeLeft <= 0) {
@@ -904,10 +906,8 @@ function drawArrowShape(ctx, cx, cy, size, color, strokeColor, lineWidth, isPres
   ctx.lineTo(-headW, -h / 2 + head);
   ctx.closePath();
 
-  // fill with color
   ctx.fillStyle = color;
   ctx.fill();
-  // thick outline
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = lineWidth;
   ctx.stroke();
@@ -919,41 +919,39 @@ function drawUI() {
     let width = LANE_WIDTH;
     let isPressedActive = pressedLanes[i] && gamePhase === 'playing';
 
-    // lane background glow (very subtle)
+    // lane background glow (subtle)
     if (isPressedActive) {
       ctx.save();
       let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
       grad.addColorStop(0, 'rgba(255,255,255,0)');
       grad.addColorStop(1, ARROW_COLORS[i]);
-      ctx.globalAlpha = 0.06;
+      ctx.globalAlpha = 0.15;
       ctx.fillStyle = grad;
       ctx.fillRect(xPos, 0, width, canvas.height);
       ctx.restore();
     }
 
-    // receptor box (thinner, more transparent)
+    // receptor box
     ctx.save();
-    ctx.strokeStyle = isPressedActive ? ARROW_COLORS[i] : 'rgba(255,255,255,0.15)';
-    ctx.lineWidth = isPressedActive ? 2 : 1;
-    ctx.fillStyle = isPressedActive ? 'rgba(0,0,0,0.2)' : 'rgba(30,28,48,0.2)';
+    ctx.strokeStyle = isPressedActive ? ARROW_COLORS[i] : 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = isPressedActive ? 2 : 1.5;
+    ctx.fillStyle = isPressedActive ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.4)';
     ctx.fillRect(xPos + 6, RECEPTOR_Y - 32, width - 12, 64);
     ctx.strokeRect(xPos + 6, RECEPTOR_Y - 32, width - 12, 64);
     ctx.restore();
 
-    // draw arrow with simplified function
+    // draw arrow
     const arrowSize = Math.min(width - 12, 64) * 0.7;
     const cx = xPos + width / 2;
     const cy = RECEPTOR_Y;
-    const color = isPressedActive ? ARROW_COLORS[i] : 'rgba(255,255,255,0.2)';
-    const stroke = isPressedActive ? '#ffffff' : 'rgba(255,255,255,0.3)';
+    const color = isPressedActive ? ARROW_COLORS[i] : 'rgba(255,255,255,0.35)';
+    const stroke = isPressedActive ? '#ffffff' : 'rgba(255,255,255,0.5)';
     const lw = isPressedActive ? 4 : 2;
 
     ctx.save();
     ctx.translate(cx, cy);
-    // rotate based on lane
     const rotation = (i === 0 ? -Math.PI / 2 : (i === 1 ? Math.PI : (i === 2 ? 0 : Math.PI / 2)));
     ctx.rotate(rotation);
-    ctx.globalAlpha = 0.5;
     drawArrowShape(ctx, 0, 0, arrowSize, color, stroke, lw, isPressedActive);
     ctx.restore();
   }
@@ -1006,11 +1004,11 @@ function updateAndDrawNotes(currentSongTime) {
       let remaining = (holdEndTime - currentSongTime) * scrollSpeed;
       ctx.save();
       let holdGrad = ctx.createLinearGradient(0, RECEPTOR_Y, 0, RECEPTOR_Y - remaining);
-      holdGrad.addColorStop(0, 'rgba(255,255,255,0.3)');
-      holdGrad.addColorStop(0.2, ARROW_COLORS[note.lane] + '44');
+      holdGrad.addColorStop(0, 'rgba(255,255,255,0.4)');
+      holdGrad.addColorStop(0.2, ARROW_COLORS[note.lane] + '66');
       holdGrad.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = holdGrad;
-      ctx.globalAlpha = 0.3;
+      ctx.globalAlpha = 0.6;
       ctx.fillRect(xPos + width / 4, RECEPTOR_Y - remaining, width / 2, remaining);
       ctx.restore();
       continue;
@@ -1019,7 +1017,7 @@ function updateAndDrawNotes(currentSongTime) {
     if (note.hit) {
       if (note.hitAnim > 0) {
         ctx.save();
-        ctx.globalAlpha = 0.6;
+        ctx.globalAlpha = 0.8;
         const arrowSize = Math.min(LANE_WIDTH - 12, 64) * 0.7;
         const cx = note.lane * LANE_WIDTH + LANE_WIDTH / 2;
         const cy = RECEPTOR_Y;
@@ -1045,16 +1043,16 @@ function updateAndDrawNotes(currentSongTime) {
         let tailPixelLength = note.holdDuration * scrollSpeed;
         ctx.save();
         let holdGrad = ctx.createLinearGradient(0, noteY, 0, noteY - tailPixelLength);
-        holdGrad.addColorStop(0, ARROW_COLORS[note.lane] + '55');
+        holdGrad.addColorStop(0, ARROW_COLORS[note.lane] + '88');
         holdGrad.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = holdGrad;
-        ctx.globalAlpha = 0.25;
+        ctx.globalAlpha = 0.5;
         ctx.fillRect(xPos + width / 4, noteY - tailPixelLength, width / 2, tailPixelLength);
         ctx.restore();
       }
       // draw note arrow
       ctx.save();
-      ctx.globalAlpha = 0.4;
+      ctx.globalAlpha = 0.7;
       const arrowSize = Math.min(LANE_WIDTH - 12, 64) * 0.6;
       const cx = note.lane * LANE_WIDTH + LANE_WIDTH / 2;
       const cy = noteY;
@@ -1074,7 +1072,7 @@ function drawHoldEffects() {
     const alpha = 1 - ef.progress;
     const radius = 20 + ef.progress * 30;
     ctx.save();
-    ctx.globalAlpha = alpha * 0.25;
+    ctx.globalAlpha = alpha * 0.4;
     ctx.strokeStyle = ef.color;
     ctx.lineWidth = 3 * (1 - ef.progress * 0.5);
     ctx.beginPath();
@@ -1092,7 +1090,7 @@ function drawMilestoneEffects() {
     const alpha = 1 - ef.progress;
     const scale = 0.5 + ef.progress * 1.5;
     ctx.save();
-    ctx.globalAlpha = alpha * 0.6;
+    ctx.globalAlpha = alpha * 0.8;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const fontSize = 40 * scale;
@@ -1120,7 +1118,7 @@ function drawJudgment() {
     else if (feedbackText === "GOOD") color = lastHitEarly ? "#FFD700" : "#FF4757";
     else if (feedbackText === "SYNCED!") color = "#FF3ED8";
     else color = "#ff4757";
-    ctx.globalAlpha = 0.6;
+    ctx.shadowBlur = 0;
     ctx.fillStyle = color;
     ctx.fillText(feedbackText, 0, 0);
     ctx.restore();
@@ -1139,12 +1137,10 @@ function drawCombo() {
     let grad = ctx.createLinearGradient(0, -50, 0, 20);
     grad.addColorStop(0, '#ffffff');
     grad.addColorStop(1, '#20E8FF');
-    ctx.globalAlpha = 0.6;
     ctx.fillStyle = grad;
     ctx.fillText(combo, 0, 0);
     ctx.font = "700 " + Math.round(canvas.width * 0.04) + "px 'Rajdhani', sans-serif";
     ctx.fillStyle = "#FF3ED8";
-    ctx.globalAlpha = 0.7;
     ctx.fillText("CHAIN LINK", 0, canvas.width * 0.1);
     ctx.restore();
   }
