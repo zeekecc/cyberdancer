@@ -165,6 +165,9 @@ if (colorSchemeSelect) {
     var scheme = e.target.value;
     ARROW_COLORS = COLOR_SCHEMES[scheme] || COLOR_SCHEMES.cyber;
     updateColorPreview(scheme);
+    if (typeof drawArcadeArrow !== 'undefined' && drawArcadeArrow.cache) {
+      drawArcadeArrow.cache = {};
+    }
   });
   updateColorPreview(colorSchemeSelect.value);
 }
@@ -564,6 +567,9 @@ function resizeCanvas() {
   canvas.height = Math.round(cssH * dpr);
   LANE_WIDTH = canvas.width / LANE_COUNT;
   RECEPTOR_Y = canvas.height - BOTTOM_MARGIN_CSS * dpr;
+  if (typeof drawArcadeArrow !== 'undefined' && drawArcadeArrow.cache) {
+    drawArcadeArrow.cache = {};
+  }
 }
 
 var resizeTimer = null;
@@ -989,28 +995,93 @@ function gameLoop(timestamp) {
   if (gamePhase !== 'results') requestAnimationFrame(gameLoop);
 }
 
-function drawSolidArrow(ctx, cx, cy, size, color, strokeColor, lineWidth, isPressed) {
-  var w = size * 0.9;
-  var h = size * 0.9;
-  var stem = w * 0.28;
-  var head = h * 0.42;
-  var headW = w * 0.58;
+function drawArcadeArrow(ctx, x, y, width, height, lane, fillColor, strokeColor, isReceptor, isHitFlash) {
+  drawArcadeArrow.cache = drawArcadeArrow.cache || {};
 
-  ctx.beginPath();
-  ctx.moveTo(0, -h / 2);
-  ctx.lineTo(headW, -h / 2 + head);
-  ctx.lineTo(stem, -h / 2 + head);
-  ctx.lineTo(stem, h / 2);
-  ctx.lineTo(-stem, h / 2);
-  ctx.lineTo(-stem, -h / 2 + head);
-  ctx.lineTo(-headW, -h / 2 + head);
-  ctx.closePath();
+  isReceptor = isReceptor || false;
+  isHitFlash = isHitFlash || false;
 
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = lineWidth;
-  ctx.stroke();
+  var isUnpressedReceptor = isReceptor && fillColor === 'rgba(255, 255, 255, 0.05)';
+  var state = isUnpressedReceptor ? 'unpressed' : (isReceptor ? 'pressed' : (isHitFlash ? 'flash' : 'normal'));
+
+  var wKey = Math.round(width);
+  var hKey = Math.round(height);
+  var cacheKey = lane + '_' + state + '_' + wKey + '_' + hKey;
+
+  var padding = 40;
+  var canvasSize = Math.max(wKey, hKey) + padding * 2;
+
+  if (!drawArcadeArrow.cache[cacheKey]) {
+    var offscreen = document.createElement('canvas');
+    offscreen.width = canvasSize;
+    offscreen.height = canvasSize;
+    var octx = offscreen.getContext('2d');
+
+    octx.translate(canvasSize / 2, canvasSize / 2);
+
+    var rotation = (lane === 0 ? -Math.PI / 2 : (lane === 1 ? Math.PI : (lane === 2 ? 0 : Math.PI / 2)));
+    octx.rotate(rotation);
+
+    var boxSize = Math.min(width, height) * 0.95;
+    var w = boxSize;
+    var h = boxSize;
+
+    var traceArrow = function() {
+      var stem = w * 0.28;
+      var head = h * 0.42;
+      var headW = w * 0.58;
+
+      octx.beginPath();
+      octx.moveTo(0, -h / 2);
+      octx.lineTo(headW, -h / 2 + head);
+      octx.lineTo(stem, -h / 2 + head);
+      octx.lineTo(stem, h / 2);
+      octx.lineTo(-stem, h / 2);
+      octx.lineTo(-stem, -h / 2 + head);
+      octx.lineTo(-headW, -h / 2 + head);
+      octx.closePath();
+    };
+
+    var baseColor = ARROW_COLORS[lane];
+    var glowColor = isHitFlash ? '#ffffff' : baseColor;
+
+    octx.lineJoin = 'round';
+    octx.lineCap = 'round';
+
+    // Fill with solid color
+    traceArrow();
+    octx.fillStyle = isUnpressedReceptor ? 'rgba(5, 2, 10, 0.6)' : (isReceptor ? glowColor : 'rgba(10, 5, 20, 0.85)');
+    octx.fill();
+
+    // Outline
+    if (!isUnpressedReceptor) {
+      octx.shadowBlur = isHitFlash ? 30 : (isReceptor ? 20 : 15);
+      octx.shadowColor = glowColor;
+    }
+
+    traceArrow();
+    octx.lineWidth = 7;
+    octx.strokeStyle = isUnpressedReceptor ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.6)';
+    octx.stroke();
+
+    octx.lineWidth = 3;
+    if (isUnpressedReceptor) {
+      octx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    } else if (isReceptor) {
+      octx.strokeStyle = '#ffffff';
+    } else {
+      octx.strokeStyle = strokeColor;
+    }
+    octx.stroke();
+
+    drawArcadeArrow.cache[cacheKey] = offscreen;
+  }
+
+  ctx.drawImage(
+    drawArcadeArrow.cache[cacheKey],
+    (x + width / 2) - (canvasSize / 2),
+    (y + height / 2) - (canvasSize / 2)
+  );
 }
 
 function drawUI() {
@@ -1030,27 +1101,10 @@ function drawUI() {
       ctx.restore();
     }
 
-    ctx.save();
-    ctx.strokeStyle = isPressedActive ? ARROW_COLORS[i] : 'rgba(255, 255, 255, 0.25)';
-    ctx.lineWidth = isPressedActive ? 3 : 1.5;
-    ctx.fillStyle = isPressedActive ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.45)';
-    ctx.fillRect(xPos + 6, RECEPTOR_Y - 32, width - 12, 64);
-    ctx.strokeRect(xPos + 6, RECEPTOR_Y - 32, width - 12, 64);
-    ctx.restore();
-
-    var arrowSize = Math.min(width - 12, 64) * 0.95;
-    var cx = xPos + width / 2;
-    var cy = RECEPTOR_Y;
-    var color = isPressedActive ? ARROW_COLORS[i] : 'rgba(255,255,255,0.35)';
-    var stroke = isPressedActive ? '#ffffff' : 'rgba(255,255,255,0.5)';
-    var lw = isPressedActive ? 4 : 2.5;
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    var rotation = (i === 0 ? -Math.PI / 2 : (i === 1 ? Math.PI : (i === 2 ? 0 : Math.PI / 2)));
-    ctx.rotate(rotation);
-    drawSolidArrow(ctx, 0, 0, arrowSize, color, stroke, lw, isPressedActive);
-    ctx.restore();
+    drawArcadeArrow(ctx, xPos + 6, RECEPTOR_Y - 32, width - 12, 64, i,
+      isPressedActive ? ARROW_COLORS[i] : 'rgba(255, 255, 255, 0.05)',
+      isPressedActive ? '#ffffff' : 'rgba(255, 255, 255, 0.3)',
+      true, false);
   }
 }
 
@@ -1120,16 +1174,8 @@ function updateAndDrawNotes(currentSongTime) {
 
     if (note.hit) {
       if (note.hitAnim > 0) {
-        ctx.save();
-        ctx.globalAlpha = 0.8;
-        var arrowSize = Math.min(LANE_WIDTH - 12, 64) * 0.95;
-        var cx = note.lane * LANE_WIDTH + LANE_WIDTH / 2;
-        var cy = RECEPTOR_Y;
-        ctx.translate(cx, cy);
-        var rotation = (note.lane === 0 ? -Math.PI / 2 : (note.lane === 1 ? Math.PI : (note.lane === 2 ? 0 : Math.PI / 2)));
-        ctx.rotate(rotation);
-        drawSolidArrow(ctx, 0, 0, arrowSize, '#ffffff', ARROW_COLORS[note.lane], 5, true);
-        ctx.restore();
+        drawArcadeArrow(ctx, (note.lane * LANE_WIDTH) + 6, RECEPTOR_Y - 32, LANE_WIDTH - 12, 64,
+          note.lane, '#ffffff', ARROW_COLORS[note.lane], false, true);
         note.hitAnim--;
       }
       continue;
@@ -1165,16 +1211,8 @@ function updateAndDrawNotes(currentSongTime) {
         }
       }
 
-      ctx.save();
-      ctx.globalAlpha = 0.85;
-      var arrowSize = Math.min(LANE_WIDTH - 12, 64) * 0.8;
-      var cx = note.lane * LANE_WIDTH + LANE_WIDTH / 2;
-      var cy = noteY;
-      ctx.translate(cx, cy);
-      var rotation = (note.lane === 0 ? -Math.PI / 2 : (note.lane === 1 ? Math.PI : (note.lane === 2 ? 0 : Math.PI / 2)));
-      ctx.rotate(rotation);
-      drawSolidArrow(ctx, 0, 0, arrowSize, ARROW_COLORS[note.lane], '#ffffff', 3.5, false);
-      ctx.restore();
+      drawArcadeArrow(ctx, (note.lane * LANE_WIDTH) + 6, noteY - 32, LANE_WIDTH - 12, 64,
+        note.lane, ARROW_COLORS[note.lane], '#ffffff', false, false);
     }
   }
 }
