@@ -10,6 +10,10 @@ const gameContainer = document.getElementById('game-container');
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const songMetadataBox = document.getElementById('song-metadata');
+const playlistListEl = document.getElementById('playlist-list');
+const playlistDropdown = document.getElementById('playlist-dropdown');
+const playlistToggle = document.getElementById('playlistToggle');
+const playlistToggleText = document.getElementById('playlistToggleText');
 const sidebarTrackName = document.getElementById('sidebar-track-name');
 const sidebarBpm = document.getElementById('sidebar-bpm');
 const sidebarTimeLeft = document.getElementById('sidebar-time-left');
@@ -18,8 +22,91 @@ const sidebarProgressFill = document.getElementById('sidebar-progress-fill');
 const sidebarLifeFill = document.getElementById('sidebar-life-fill');
 const sidebarLifeVal = document.getElementById('sidebar-life-val');
 
+const comboFlash = document.getElementById('combo-flash');
+const particleCanvas = document.getElementById('particle-canvas');
+const particleCtx = particleCanvas.getContext('2d');
+let particles = [];
+
+function initParticleCanvas() {
+  particleCanvas.width = window.innerWidth;
+  particleCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', initParticleCanvas);
+initParticleCanvas();
+
+function spawnParticles(x, y, color, count = 40) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * 2 * Math.PI;
+    const speed = 200 + Math.random() * 300;
+    const size = 4 + Math.random() * 8;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 50,
+      life: 1,
+      decay: 0.008 + Math.random() * 0.015,
+      size,
+      color: color || `hsl(${Math.random() * 360}, 100%, 70%)`,
+    });
+  }
+}
+
+function updateParticles(delta) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * delta;
+    p.y += p.vy * delta;
+    p.vy += 200 * delta;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+  for (const p of particles) {
+    particleCtx.globalAlpha = p.life;
+    particleCtx.fillStyle = p.color;
+    particleCtx.shadowBlur = 20;
+    particleCtx.shadowColor = p.color;
+    particleCtx.beginPath();
+    particleCtx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    particleCtx.fill();
+  }
+  particleCtx.globalAlpha = 1;
+  particleCtx.shadowBlur = 0;
+}
+
+function spawnHoldLabel(x, y, text = 'HOLD COMPLETE') {
+  const el = document.createElement('div');
+  el.className = 'hold-label';
+  el.textContent = text;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  document.body.appendChild(el);
+  requestAnimationFrame(() => {
+    el.classList.add('show');
+  });
+  setTimeout(() => {
+    el.classList.remove('show');
+    el.classList.add('fade');
+    setTimeout(() => el.remove(), 700);
+  }, 400);
+}
+
+let flashTimeout = null;
+function triggerComboFlash() {
+  if (flashTimeout) return;
+  comboFlash.classList.add('active');
+  flashTimeout = setTimeout(() => {
+    comboFlash.classList.remove('active');
+    flashTimeout = null;
+  }, 120);
+}
+
 let audioCtx = null;
 let audioBuffer = null;
+let audioOffsetMs = 0;
 let audioSource = null;
 let songStartTime = 0;
 let isPlaying = false;
@@ -28,6 +115,7 @@ let pauseStartTime = 0;
 let totalPausedTime = 0;
 let gamePhase = 'menu';
 let phaseStartTime = 0;
+let lastHitEarly = false;
 let lastCountdownSecond = -1;
 let notes = [];
 let score = 0;
@@ -39,6 +127,16 @@ let feedbackTimer = 0;
 let estimatedBPM = 120;
 let stats = { perfect: 0, good: 0, miss: 0, maxCombo: 0 };
 let currentTrackMeta = { artist: "Unknown", title: "Unknown Track" };
+let playlistTracks = [];
+let selectedPlaylistTrack = null;
+let manualAudioBuffer = null;
+let manualTrackMeta = null;
+let manualEstimatedBPM = null;
+let previewSource = null;
+let previewGain = null;
+
+let holdEffects = [];
+let milestoneEffects = [];
 
 const LANE_COUNT = 4;
 const LANE_WIDTH = canvas.width / LANE_COUNT;
@@ -50,7 +148,56 @@ let laneKeys = ['KeyA', 'KeyS', 'KeyK', 'KeyL'];
 let pressedLanes = [false, false, false, false];
 let listeningLane = null;
 
-const ARROW_COLORS = ['#00FFFF', '#B026FF', '#FF00FF', '#00FFFF'];
+let ARROW_COLORS = ['#8D3CFF', '#20E8FF', '#FFD700', '#FF4757'];
+
+const COLOR_SCHEMES = {
+  cyber: ['#8D3CFF', '#20E8FF', '#FFD700', '#FF4757'],
+  classic: ['#00FFFF', '#B026FF', '#FF00FF', '#00FFFF'],
+  neon: ['#00FF88', '#20E8FF', '#FF3ED8', '#FF8C00']
+};
+
+const colorSchemeSelect = document.getElementById('colorSchemeSelect');
+const colorPreview = document.getElementById('colorPreview');
+
+function updateColorPreview(scheme) {
+  const colors = COLOR_SCHEMES[scheme];
+  if (!colors || !colorPreview) return;
+  const squares = colorPreview.querySelectorAll('div');
+  squares.forEach((div, index) => {
+    if (index < colors.length) div.style.background = colors[index];
+  });
+}
+
+if (colorSchemeSelect) {
+  colorSchemeSelect.addEventListener('change', (e) => {
+    const scheme = e.target.value;
+    ARROW_COLORS = COLOR_SCHEMES[scheme] || COLOR_SCHEMES.cyber;
+    updateColorPreview(scheme);
+    if (typeof drawArcadeArrow !== 'undefined' && drawArcadeArrow.cache) {
+      drawArcadeArrow.cache = {};
+    }
+  });
+  updateColorPreview(colorSchemeSelect.value);
+}
+
+const latencySlider = document.getElementById('latencySlider');
+const latencyValue = document.getElementById('latencyValue');
+const resetLatencyBtn = document.getElementById('resetLatency');
+
+if (latencySlider) {
+  latencySlider.addEventListener('input', (e) => {
+    audioOffsetMs = parseInt(e.target.value);
+    latencyValue.textContent = audioOffsetMs + ' ms';
+  });
+}
+if (resetLatencyBtn) {
+  resetLatencyBtn.addEventListener('click', () => {
+    audioOffsetMs = 0;
+    latencySlider.value = 0;
+    latencyValue.textContent = '0 ms';
+  });
+}
+if (latencyValue) latencyValue.textContent = '0 ms';
 
 function playBeep(freq, duration, type = 'sine') {
   if (!audioCtx) return;
@@ -147,9 +294,31 @@ document.querySelectorAll('.keybind-btn').forEach(btn => {
   });
 });
 
+function deriveMetaFromFilename(name) {
+  const cleanName = name.replace(/\.[^/.]+$/, "");
+  const parts = cleanName.split('-');
+  if (parts.length > 1) {
+    return { artist: parts[0].trim(), title: parts.slice(1).join('-').trim() };
+  }
+  return { artist: "Unknown Artist", title: cleanName };
+}
+
+function applyMetaToUI() {
+  document.getElementById('metaArtist').innerText = currentTrackMeta.artist;
+  document.getElementById('metaTitle').innerText = currentTrackMeta.title;
+  document.getElementById('metaDuration').innerText = formatTime(audioBuffer.duration);
+  document.getElementById('metaBpm').innerText = estimatedBPM;
+  document.getElementById('metaNotes').innerText = notes.length;
+  songMetadataBox.style.display = 'grid';
+}
+
 fileInput.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+  stopPreview();
+  selectedPlaylistTrack = null;
+  document.querySelectorAll('.playlist-item').forEach(el => el.classList.remove('active'));
+  if (playlistToggleText) playlistToggleText.textContent = 'Select a track…';
   startBtn.innerText = "PROCESSING AUDIO...";
   startBtn.disabled = true;
   try {
@@ -159,23 +328,16 @@ fileInput.addEventListener('change', async (e) => {
       audioCtx.decodeAudioData(arrayBuffer),
       new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
     ]);
-    const cleanName = file.name.replace(/\.[^/.]+$/, "");
-    const parts = cleanName.split('-');
-    if (parts.length > 1) {
-      currentTrackMeta.artist = parts[0].trim();
-      currentTrackMeta.title = parts.slice(1).join('-').trim();
-    } else {
-      currentTrackMeta.artist = "Unknown Artist";
-      currentTrackMeta.title = cleanName;
-    }
+    const meta = deriveMetaFromFilename(file.name);
+    currentTrackMeta.artist = meta.artist;
+    currentTrackMeta.title = meta.title;
     estimatedBPM = estimateBPM(audioBuffer);
     notes = autoGenerateChart(audioBuffer, difficultySetting);
-    document.getElementById('metaArtist').innerText = currentTrackMeta.artist;
-    document.getElementById('metaTitle').innerText = currentTrackMeta.title;
-    document.getElementById('metaDuration').innerText = formatTime(audioBuffer.duration);
-    document.getElementById('metaBpm').innerText = estimatedBPM;
-    document.getElementById('metaNotes').innerText = notes.length;
-    songMetadataBox.style.display = 'grid';
+    applyMetaToUI();
+    manualAudioBuffer = audioBuffer;
+    manualTrackMeta = { artist: currentTrackMeta.artist, title: currentTrackMeta.title };
+    manualEstimatedBPM = estimatedBPM;
+    if (playlistToggleText) playlistToggleText.textContent = `${currentTrackMeta.artist} - ${currentTrackMeta.title} (Manual)`;
     startBtn.innerText = "INITIALIZE UPLINK";
     startBtn.disabled = false;
   } catch (err) {
@@ -184,6 +346,170 @@ fileInput.addEventListener('change', async (e) => {
     startBtn.disabled = true;
     fileInput.value = "";
   }
+});
+
+async function loadPlaylistManifest() {
+  try {
+    const res = await fetch('music/playlist.json', { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) return normalizePlaylist(data);
+    }
+  } catch (e) {}
+  try {
+    const res = await fetch('music/', { cache: 'no-store' });
+    if (res.ok) {
+      const html = await res.text();
+      const matches = Array.from(html.matchAll(/href="([^"?#]+\.(?:mp3|wav|ogg|m4a))"/gi)).map(m => decodeURIComponent(m[1]));
+      if (matches.length) return normalizePlaylist(matches);
+    }
+  } catch (e) {}
+  return [];
+}
+
+function normalizePlaylist(list) {
+  return list.map(item => {
+    if (typeof item === 'string') {
+      const file = item.includes('/') ? item : `music/${item}`;
+      const meta = deriveMetaFromFilename(item.split('/').pop());
+      return { file, artist: meta.artist, title: meta.title };
+    }
+    if (item && item.file) {
+      const file = item.file.includes('/') ? item.file : `music/${item.file}`;
+      const fallback = deriveMetaFromFilename(item.file.split('/').pop());
+      return { file, artist: item.artist || fallback.artist, title: item.title || fallback.title };
+    }
+    return null;
+  }).filter(Boolean);
+}
+
+function renderPlaylist() {
+  if (!playlistListEl) return;
+  if (playlistTracks.length === 0) {
+    playlistListEl.innerHTML = '<p class="playlist-empty">No tracks found. Drop mp3 files into the "music" folder and list them in music/playlist.json — or upload a track manually below.</p>';
+    if (playlistToggleText) playlistToggleText.textContent = 'No tracks found';
+    return;
+  }
+  playlistListEl.innerHTML = '';
+  playlistTracks.forEach(track => {
+    const item = document.createElement('div');
+    item.className = 'playlist-item';
+    const info = document.createElement('div');
+    info.className = 'pl-info';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'pl-title';
+    titleEl.textContent = track.title;
+    const artistEl = document.createElement('div');
+    artistEl.className = 'pl-artist';
+    artistEl.textContent = track.artist;
+    info.appendChild(titleEl);
+    info.appendChild(artistEl);
+    const badge = document.createElement('span');
+    badge.className = 'pl-badge';
+    badge.textContent = '▶ PREVIEW';
+    item.appendChild(info);
+    item.appendChild(badge);
+    item.addEventListener('click', () => selectPlaylistTrack(track, item));
+    playlistListEl.appendChild(item);
+  });
+}
+
+async function selectPlaylistTrack(track, itemEl) {
+  if (gamePhase !== 'menu') return;
+  stopPreview();
+  fileInput.value = "";
+  document.querySelectorAll('.playlist-item').forEach(el => el.classList.remove('active'));
+  itemEl.classList.add('active');
+  selectedPlaylistTrack = track;
+  startBtn.innerText = "PROCESSING AUDIO...";
+  startBtn.disabled = true;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') { try { await audioCtx.resume(); } catch (e) {} }
+    const res = await fetch(track.file);
+    if (!res.ok) throw new Error('fetch failed: ' + res.status);
+    const arrayBuffer = await res.arrayBuffer();
+    audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    currentTrackMeta.artist = track.artist;
+    currentTrackMeta.title = track.title;
+    estimatedBPM = estimateBPM(audioBuffer);
+    notes = autoGenerateChart(audioBuffer, difficultySetting);
+    applyMetaToUI();
+    startBtn.innerText = "INITIALIZE UPLINK";
+    startBtn.disabled = false;
+    if (playlistToggleText) playlistToggleText.textContent = `${track.artist} - ${track.title}`;
+    closePlaylistDropdown();
+    startPreviewLoop();
+  } catch (err) {
+    alert(`Could not load "${track.title}". Make sure the file exists in the music folder and the site is served over http(s), not opened directly from disk.`);
+    startBtn.innerText = "INITIALIZE UPLINK";
+    startBtn.disabled = true;
+    itemEl.classList.remove('active');
+    selectedPlaylistTrack = null;
+  }
+}
+
+function openPlaylistDropdown() { if (playlistDropdown) playlistDropdown.classList.add('open'); }
+function closePlaylistDropdown() { if (playlistDropdown) playlistDropdown.classList.remove('open'); }
+function togglePlaylistDropdown() {
+  if (!playlistDropdown) return;
+  if (playlistDropdown.classList.contains('open')) closePlaylistDropdown();
+  else openPlaylistDropdown();
+}
+
+if (playlistToggle) {
+  playlistToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    togglePlaylistDropdown();
+  });
+}
+document.addEventListener('click', (e) => {
+  if (playlistDropdown && playlistDropdown.classList.contains('open') && !playlistDropdown.contains(e.target)) {
+    closePlaylistDropdown();
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePlaylistDropdown();
+});
+
+function startPreviewLoop() {
+  stopPreview();
+  if (!audioCtx || !audioBuffer) return;
+  const previewLen = Math.min(5, audioBuffer.duration);
+  const offset = Math.min(Math.max(0, audioBuffer.duration * 0.15), Math.max(0, audioBuffer.duration - previewLen));
+  try {
+    previewSource = audioCtx.createBufferSource();
+    previewSource.buffer = audioBuffer;
+    previewSource.loop = false;
+    previewGain = audioCtx.createGain();
+    previewGain.gain.value = 0.55;
+    previewSource.connect(previewGain);
+    previewGain.connect(audioCtx.destination);
+    previewSource.start(0, offset, previewLen);
+    previewSource.onended = function() {
+      previewSource = null;
+      previewGain = null;
+    };
+  } catch (e) {
+    previewSource = null;
+    previewGain = null;
+  }
+}
+
+function stopPreview() {
+  if (previewSource) {
+    try { previewSource.stop(); } catch (e) {}
+    previewSource = null;
+  }
+  if (previewGain) {
+    try { previewGain.disconnect(); } catch (e) {}
+    previewGain = null;
+  }
+}
+
+loadPlaylistManifest().then(tracks => {
+  playlistTracks = tracks;
+  renderPlaylist();
 });
 
 function formatTime(seconds) {
@@ -205,6 +531,9 @@ function autoGenerateChart(buffer, difficulty) {
   let lastDoubleTime = -999;
   let nextAllowedHitTime = 0;
   const cutoffTime = buffer.duration - 5;
+  const beatDuration = 60.0 / estimatedBPM;
+  const sixteenthDuration = beatDuration / 4;
+
   for (let i = 0; i < rawData.length;) {
     let sum = 0;
     for (let j = 0; j < windowSize && (i + j) < rawData.length; j++) {
@@ -213,19 +542,21 @@ function autoGenerateChart(buffer, difficulty) {
     let rms = Math.sqrt(sum / windowSize);
     if (rms > threshold) {
       let hitTime = i / sampleRate;
-      if (hitTime < nextAllowedHitTime) {
-        i += windowSize;
-        continue;
-      }
+      if (hitTime < nextAllowedHitTime) { i += windowSize; continue; }
       if (hitTime >= cutoffTime) break;
-      let lane = Math.floor(pseudoRandom(hitTime * 99 + i) * LANE_COUNT);
+      let snappedTime = Math.round(hitTime / sixteenthDuration) * sixteenthDuration;
+      if (snappedTime < nextAllowedHitTime) {
+        snappedTime = Math.ceil(nextAllowedHitTime / sixteenthDuration) * sixteenthDuration;
+      }
+      if (snappedTime >= cutoffTime) break;
+      let lane = Math.floor(pseudoRandom(snappedTime * 99 + i) * LANE_COUNT);
       if (lane === lastLane) lane = (lane + 1) % LANE_COUNT;
       lastLane = lane;
-      let isHold = (difficulty !== 'easy') && (pseudoRandom(hitTime * 33) < holdProbability);
-      let holdDur = isHold ? Number((pseudoRandom(hitTime * 77) * 0.8 + 0.4).toFixed(2)) : 0;
+      let isHold = (difficulty !== 'easy') && (pseudoRandom(snappedTime * 33) < holdProbability);
+      let holdDur = isHold ? Number((pseudoRandom(snappedTime * 77) * 0.8 + 0.4).toFixed(2)) : 0;
       generated.push({
         lane: lane,
-        targetHitTime: Number(hitTime.toFixed(3)),
+        targetHitTime: Number(snappedTime.toFixed(3)),
         isHold: isHold,
         holdDuration: holdDur,
         hit: false,
@@ -233,16 +564,16 @@ function autoGenerateChart(buffer, difficulty) {
         missed: false,
         hitAnim: 0
       });
-      if (difficulty !== 'easy' && !isHold && (hitTime - lastDoubleTime) > 1.2 && pseudoRandom(hitTime * 55) < doubleChance) {
-        lastDoubleTime = hitTime;
+      if (difficulty !== 'easy' && !isHold && (snappedTime - lastDoubleTime) > 1.2 && pseudoRandom(snappedTime * 55) < doubleChance) {
+        lastDoubleTime = snappedTime;
         const possible = [];
         for (let l = 0; l < LANE_COUNT; l++) {
           if (l !== lane) possible.push(l);
         }
-        let secondLane = possible[Math.floor(pseudoRandom(hitTime * 73) * possible.length)];
+        let secondLane = possible[Math.floor(pseudoRandom(snappedTime * 73) * possible.length)];
         generated.push({
           lane: secondLane,
-          targetHitTime: Number(hitTime.toFixed(3)),
+          targetHitTime: Number(snappedTime.toFixed(3)),
           isHold: false,
           holdDuration: 0,
           hit: false,
@@ -252,9 +583,9 @@ function autoGenerateChart(buffer, difficulty) {
         });
       }
       if (isHold) {
-        nextAllowedHitTime = hitTime + holdDur + 0.35;
+        nextAllowedHitTime = snappedTime + holdDur + 0.35;
       } else {
-        nextAllowedHitTime = hitTime + 0.12;
+        nextAllowedHitTime = snappedTime + sixteenthDuration * 0.5;
       }
       i += windowSize * skipMultiplier;
     } else {
@@ -265,6 +596,7 @@ function autoGenerateChart(buffer, difficulty) {
 }
 
 startBtn.addEventListener('click', () => {
+  stopPreview();
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   menu.style.display = 'none';
   resultsScreen.style.display = 'none';
@@ -279,6 +611,9 @@ startBtn.addEventListener('click', () => {
   playerLife = 100;
   totalPausedTime = 0;
   stats = { perfect: 0, good: 0, miss: 0, maxCombo: 0 };
+  holdEffects = [];
+  milestoneEffects = [];
+  particles = [];
   
   notes.forEach(note => {
     note.hit = false;
@@ -428,38 +763,53 @@ function processLaneAction(lane) {
   let targetNote = notes.find(note => !note.hit && !note.missed && note.lane === lane);
   if (!targetNote) return;
   let timeDelta = Math.abs(targetNote.targetHitTime - currentSongTime);
-  if (timeDelta <= 0.060) {
+  if (timeDelta <= 0.090) {
     if (targetNote.isHold) {
       targetNote.hit = true;
       targetNote.holding = true;
     } else {
-      registerHit(targetNote, "PERFECT!", 300, 'perfect');
+      registerHit(targetNote, "PERFECT!", 300, 'perfect', false);
     }
-  } else if (timeDelta <= 0.120) {
+  } else if (timeDelta <= 0.160) {
     if (targetNote.isHold) {
       targetNote.hit = true;
       targetNote.holding = true;
     } else {
-      registerHit(targetNote, "GOOD", 150, 'good');
+      const isEarly = currentSongTime < targetNote.targetHitTime;
+      registerHit(targetNote, "GOOD", 150, 'good', isEarly);
     }
-  } else if (timeDelta <= 0.180) {
+  } else if (timeDelta <= 0.220) {
     registerMiss("SYSTEM MISS");
   }
 }
 
-function registerHit(note, grade, points, type) {
+function registerHit(note, grade, points, type, early) {
   note.hit = true;
   note.hitAnim = 12;
   score += points;
   combo++;
   comboAnim = 15;
   if (combo > stats.maxCombo) stats.maxCombo = combo;
-  playerLife = Math.min(100, playerLife + (type === 'perfect' ? 6 : 4));
+  playerLife = Math.min(100, playerLife + 6);
   if (type === 'perfect') stats.perfect++;
   else stats.good++;
   feedbackText = grade;
   feedbackTimer = 35;
+  lastHitEarly = early || false;
   updateLifeBar();
+
+  if (combo > 0 && combo % 100 === 0) {
+    triggerComboFlash();
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    spawnParticles(cx, cy, null, 60);
+    milestoneEffects.push({
+      text: combo + ' COMBO!',
+      progress: 0,
+      lifetime: 60,
+      scale: 0.5
+    });
+  }
 }
 
 function registerMiss(reason) {
@@ -468,7 +818,8 @@ function registerMiss(reason) {
   feedbackText = reason;
   feedbackTimer = 35;
   stats.miss++;
-  playerLife = Math.max(0, playerLife - 3);
+  playerLife = Math.max(0, playerLife - 8);
+  lastHitEarly = false;
   updateLifeBar();
   if (playerLife <= 0) triggerFail();
 }
@@ -525,6 +876,10 @@ function gameLoop(timestamp) {
   if (gamePhase === 'menu' || gamePhase === 'results') return;
   if (isPaused) return;
   try {
+    const delta = 0.016;
+    updateParticles(delta);
+    drawParticles();
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
     grad.addColorStop(0, 'rgba(5, 5, 10, 0.85)');
@@ -570,7 +925,8 @@ function gameLoop(timestamp) {
         gamePhase = 'playing';
         isPlaying = true;
         const prerollDuration = (canvas.height - JUDGMENT_LINE_Y) / scrollSpeed;
-        songStartTime = audioCtx.currentTime + prerollDuration;
+        const offsetSeconds = audioOffsetMs / 1000;
+        songStartTime = audioCtx.currentTime + prerollDuration - offsetSeconds;
         audioSource = audioCtx.createBufferSource();
         audioSource.buffer = audioBuffer;
         audioSource.playbackRate.value = 1.0;
@@ -591,6 +947,8 @@ function gameLoop(timestamp) {
       updateAndDrawNotes(currentSongTime);
       drawJudgment();
       drawCombo();
+      drawHoldEffects();
+      drawMilestoneEffects();
     }
   } catch (err) {
     finishGame(true);
@@ -739,7 +1097,7 @@ function drawArcadeArrow(ctx, x, y, width, height, lane, fillColor, strokeColor,
 }
 
 function updateAndDrawNotes(currentSongTime) {
-  const missWindow = 0.180;
+  const missWindow = 0.220;
   for (let i = 0; i < notes.length; i++) {
     let note = notes[i];
     if (note.missed) continue;
@@ -753,10 +1111,31 @@ function updateAndDrawNotes(currentSongTime) {
         comboAnim = 15;
         if (combo > stats.maxCombo) stats.maxCombo = combo;
         stats.perfect++;
-        playerLife = Math.min(100, playerLife + 5);
+        playerLife = Math.min(100, playerLife + 6);
         feedbackText = "SYNCED!";
         feedbackTimer = 25;
         updateLifeBar();
+        holdEffects.push({
+          lane: note.lane,
+          x: note.lane * LANE_WIDTH + LANE_WIDTH / 2,
+          y: JUDGMENT_LINE_Y,
+          progress: 0,
+          lifetime: 40,
+          color: ARROW_COLORS[note.lane]
+        });
+
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = rect.width / canvas.width;
+        const scaleY = rect.height / canvas.height;
+        const screenX = rect.left + (note.lane * LANE_WIDTH + LANE_WIDTH/2) * scaleX;
+        const screenY = rect.top + JUDGMENT_LINE_Y * scaleY;
+        spawnParticles(screenX, screenY, ARROW_COLORS[note.lane], 30);
+        spawnHoldLabel(screenX, screenY, 'HOLD COMPLETE');
+
+        if (combo % 100 === 0 && combo > 0) {
+          // combo milestone handled in registerHit, but we also handle here for hold notes
+          // skip to avoid duplicate
+        }
         continue;
       }
       let xPos = (note.lane * LANE_WIDTH) + 6;
@@ -806,6 +1185,54 @@ function updateAndDrawNotes(currentSongTime) {
   }
 }
 
+function drawHoldEffects() {
+  for (let i = holdEffects.length - 1; i >= 0; i--) {
+    const ef = holdEffects[i];
+    ef.progress += 1 / ef.lifetime;
+    const alpha = 1 - ef.progress;
+    const radius = 20 + ef.progress * 60;
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.8;
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = ef.color;
+    ctx.strokeStyle = ef.color;
+    ctx.lineWidth = 4 * (1 - ef.progress * 0.5);
+    ctx.beginPath();
+    ctx.arc(ef.x, ef.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    if (ef.progress >= 1) {
+      holdEffects.splice(i, 1);
+    }
+  }
+}
+
+function drawMilestoneEffects() {
+  for (let i = milestoneEffects.length - 1; i >= 0; i--) {
+    const ef = milestoneEffects[i];
+    ef.progress += 1 / ef.lifetime;
+    const alpha = 1 - ef.progress;
+    const scale = 0.5 + ef.progress * 1.5;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const fontSize = 50 * scale;
+    ctx.font = `900 ${fontSize}px "Orbitron", sans-serif`;
+    ctx.shadowBlur = 40;
+    ctx.shadowColor = '#20E8FF';
+    const grad = ctx.createLinearGradient(0, canvas.height / 2 - 100, 0, canvas.height / 2 + 100);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(1, '#20E8FF');
+    ctx.fillStyle = grad;
+    ctx.fillText(ef.text, canvas.width / 2, canvas.height / 2 - 20);
+    ctx.restore();
+    if (ef.progress >= 1) {
+      milestoneEffects.splice(i, 1);
+    }
+  }
+}
+
 function drawJudgment() {
   if (feedbackTimer > 0) {
     ctx.save();
@@ -815,8 +1242,16 @@ function drawJudgment() {
     ctx.scale(scale, scale);
     ctx.font = "900 36px 'Orbitron', sans-serif";
     
-    let color = feedbackText === "PERFECT!" ? "#20E8FF" : (feedbackText === "GOOD" ? "#8D3CFF" : "#ff4757");
-    if (feedbackText === "SYNCED!") color = "#FF3ED8";
+    let color;
+    if (feedbackText === "PERFECT!") {
+      color = "#20E8FF"; 
+    } else if (feedbackText === "GOOD") {
+      color = lastHitEarly ? "#FFD700" : "#FF4757"; 
+    } else if (feedbackText === "SYNCED!") {
+      color = "#FF3ED8"; 
+    } else {
+      color = "#ff4757"; 
+    }
     
     ctx.shadowBlur = 25;
     ctx.shadowColor = color;

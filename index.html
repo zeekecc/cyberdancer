@@ -2,8 +2,6 @@
 <html lang="en">
   <head>
     <script>
-      // Redirect touch/narrow devices to the mobile-optimized build before
-      // the desktop layout (blurred sidebar, fixed canvas) has a chance to paint.
       (function () {
         try {
           if (localStorage.getItem('cd_forceDesktop') === '1') return;
@@ -25,9 +23,29 @@
     <video autoplay muted loop playsinline id="bg-video">
       <source src="img/stage.webm" type="video/webm">
     </video>
+
+    <div id="combo-flash"></div>
+    <canvas id="particle-canvas"></canvas>
+
     <div id="menu">
       <h2>Audio System</h2>
-      <p>Initialize Audio Track ( <i>.mp3</i>): </p>
+
+      <div class="section-box" id="playlist-section">
+        <p style="margin: 0 0 4px 0; font-family: 'Orbitron'; font-size: 10px; color: var(--cyan);">[ TRACK LIBRARY ]</p>
+        <div class="playlist-dropdown" id="playlist-dropdown">
+          <button type="button" class="playlist-dropdown-toggle" id="playlistToggle">
+            <span class="pl-toggle-text" id="playlistToggleText">Select a track…</span>
+            <span class="pl-toggle-arrow">▾</span>
+          </button>
+          <div class="playlist-dropdown-panel">
+            <div id="playlist-list">
+              <p class="playlist-empty">Scanning music folder...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p>Or upload a track manually ( <i>.mp3</i>): </p>
       <input type="file" id="audioFile" accept="audio/*">
       <div class="section-box">
         <p style="margin: 0 0 4px 0; font-family: 'Orbitron'; font-size: 10px; color: var(--cyan);">[ DIFFICULTY ]</p>
@@ -47,6 +65,24 @@
           <button class="selector-btn" data-speed="6">6x</button>
         </div>
       </div>
+
+      <div class="section-box">
+        <p style="margin: 0 0 4px 0; font-family: 'Orbitron'; font-size: 10px; color: var(--cyan);">[ LANE COLORS ]</p>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <select id="colorSchemeSelect" style="flex: 1; padding: 8px; background: rgba(0,0,0,0.6); border: 1px solid var(--glass-border); color: var(--text-main); border-radius: 4px; font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer;">
+            <option value="cyber">Cyber (Purple, Cyan, Gold, Red)</option>
+            <option value="classic">Classic (Cyan, Purple, Pink, Cyan)</option>
+            <option value="neon">Neon (Green, Cyan, Pink, Orange)</option>
+          </select>
+          <div id="colorPreview" style="display: flex; gap: 3px; height: 32px; flex-shrink: 0;">
+            <div style="width: 32px; height: 32px; background: #8D3CFF; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px;"></div>
+            <div style="width: 32px; height: 32px; background: #20E8FF; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px;"></div>
+            <div style="width: 32px; height: 32px; background: #FFD700; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px;"></div>
+            <div style="width: 32px; height: 32px; background: #FF4757; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px;"></div>
+          </div>
+        </div>
+      </div>
+
       <div id="song-metadata">
         <p class="meta-full">
           <strong>ARTIST:</strong>
@@ -92,6 +128,7 @@
           <button class="keybind-btn" data-lane="3" id="kb-3">L</button>
         </div>
       </div>
+
       <button class="primary-btn" id="startBtn" disabled>INITIALIZE UPLINK</button>
       <p style="margin-top: 10px;">
         <a href="mobile.html" style="color: var(--text-muted); font-size: 11px; font-family: 'Orbitron'; letter-spacing: 1px; text-decoration: none;">Switch to Mobile Layout →</a>

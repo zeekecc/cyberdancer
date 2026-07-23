@@ -49,9 +49,6 @@ body {
   pointer-events: none;
 }
 
-/* No animated grid overlay on mobile: a static repaint-heavy pseudo-element
-   behind a blurred panel is one of the biggest frame-time costs on mobile
-   GPUs, so it's replaced with a flat vignette. */
 body::after {
   content: "";
   position: absolute;
@@ -98,6 +95,7 @@ p { color: var(--text-muted); font-size: 13px; margin: 4px 0; }
   width: min(480px, 92vw);
   max-height: 88dvh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 18px;
   border-radius: 12px;
   background: var(--glass-bg);
@@ -145,6 +143,133 @@ input[type=file] {
 }
 
 .touch-hint { border-left-color: var(--pink); }
+
+.playlist-dropdown {
+  position: relative;
+  margin-top: 2px;
+}
+
+.playlist-dropdown-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(32, 232, 255, 0.3);
+  color: var(--cyan);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  touch-action: manipulation;
+  transition: 0.2s;
+}
+
+.playlist-dropdown.open .playlist-dropdown-toggle {
+  border-color: var(--cyan);
+  box-shadow: inset 0 0 8px rgba(32, 232, 255, 0.2);
+}
+
+.pl-toggle-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.pl-toggle-arrow {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  font-size: 12px;
+  transition: transform 0.2s;
+}
+
+.playlist-dropdown.open .pl-toggle-arrow {
+  transform: rotate(180deg);
+}
+
+.playlist-dropdown-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+
+.playlist-dropdown.open .playlist-dropdown-panel {
+  max-height: 240px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 8px;
+}
+
+.playlist-dropdown-panel::-webkit-scrollbar { width: 4px; }
+.playlist-dropdown-panel::-webkit-scrollbar-thumb { background: var(--cyan); border-radius: 10px; }
+
+.playlist-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 4px 0;
+}
+
+.playlist-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  touch-action: manipulation;
+}
+
+.playlist-item.active {
+  border-color: var(--cyan);
+  background: rgba(32, 232, 255, 0.12);
+  box-shadow: inset 0 0 10px rgba(32, 232, 255, 0.2);
+}
+
+.playlist-item .pl-info { min-width: 0; }
+
+.playlist-item .pl-title {
+  font-weight: 700;
+  color: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-item .pl-artist {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-item .pl-badge {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-family: 'Orbitron', sans-serif;
+  color: var(--pink);
+  letter-spacing: 1px;
+  opacity: 0;
+}
+
+.playlist-item.active .pl-badge {
+  opacity: 1;
+}
+
+.playlist-item.default-item .pl-title {
+  color: var(--pink);
+  font-style: italic;
+}
+
+.playlist-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 2px 8px;
+}
 
 .selector-container { display: flex; gap: 6px; width: 100%; }
 
@@ -228,8 +353,6 @@ input[type=file] {
 #song-metadata p { margin: 0; }
 #song-metadata strong { color: var(--purple); }
 
-/* ---------- Game screen: HUD replaces the blurred sidebar ---------- */
-
 #game-container {
   display: none;
   width: 100vw;
@@ -285,7 +408,6 @@ input[type=file] {
   height: 100%;
   background: var(--cyan);
   transform-origin: left center;
-  /* transform instead of width: compositor-only, no layout/paint cost */
   transition: transform 0.15s linear, background-color 0.2s linear;
 }
 
@@ -345,7 +467,6 @@ canvas#gameCanvas {
   padding-bottom: var(--safe-bottom);
 }
 
-/* Static screens keep a little glow; nothing here runs during gameplay */
 .results-score-row {
   display: flex;
   justify-content: space-around;
@@ -381,3 +502,62 @@ canvas#gameCanvas {
 .rank-badge span { transform: rotate(-45deg); display: block; }
 
 .trophy-icon { font-size: 40px; margin: 4px 0; }
+
+#combo-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  background: rgba(255, 255, 255, 0.6);
+  opacity: 0;
+  transition: opacity 0.08s ease-out;
+}
+#combo-flash.active {
+  opacity: 1;
+  transition: opacity 0s;
+}
+.hold-label {
+  position: fixed;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  color: #20E8FF;
+  text-shadow: 0 0 20px #20E8FF, 0 0 40px #20E8FF;
+  pointer-events: none;
+  z-index: 100;
+  font-size: 28px;
+  letter-spacing: 2px;
+  transform: translate(-50%, -50%) scale(0.5);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.hold-label.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+}
+.hold-label.fade {
+  opacity: 0;
+  transform: translate(-50%, -80%) scale(0.9);
+  transition: transform 0.6s ease, opacity 0.6s ease;
+}
+#particle-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  width: 100%;
+  height: 100%;
+}
+#game-container {
+  position: relative;
+}
+#particle-canvas {
+  z-index: 15;
+}
+#results-screen,
+#pause-screen {
+  z-index: 1000;
+}
+#menu {
+  z-index: 100;
+}
