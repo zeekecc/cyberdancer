@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#05050A">
-    <title>Cyber Dancer | Mobile</title>
-    <link rel="stylesheet" href="mobile.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#05050A" />
+    <title>Cyber Dancer — Mobile</title>
+    <link rel="stylesheet" href="mobile.css" />
   </head>
   <body>
     <video autoplay muted loop playsinline id="bg-video">
-      <source src="img/stage.webm" type="video/webm">
+      <source src="img/stage.webm" type="video/webm" />
     </video>
 
     <div id="combo-flash"></div>
@@ -22,25 +22,21 @@
       <h2>Audio System</h2>
 
       <div class="section-box" id="playlist-section">
-        <p class="box-label" style="color: var(--cyan);">[ TRACK LIBRARY ]</p>
+        <p class="box-label" style="color:var(--cyan);">[ TRACK LIBRARY ]</p>
         <div class="playlist-dropdown" id="playlist-dropdown">
           <button type="button" class="playlist-dropdown-toggle" id="playlistToggle">
             <span class="pl-toggle-text" id="playlistToggleText">Select a track…</span>
             <span class="pl-toggle-arrow">▾</span>
           </button>
-          <div class="playlist-dropdown-panel">
-            <div id="playlist-list">
-              <p class="playlist-empty">Scanning music folder...</p>
-            </div>
-          </div>
+          <div class="playlist-dropdown-panel"><div id="playlist-list"><p class="playlist-empty">Scanning music folder…</p></div></div>
         </div>
       </div>
 
-      <p>Or upload a track manually ( <i>.mp3</i>): </p>
-      <input type="file" id="audioFile" accept="audio/*">
+      <p>Or upload a track manually ( <i>.mp3</i>):</p>
+      <input type="file" id="audioFile" accept="audio/*" />
 
       <div class="section-box">
-        <p class="box-label" style="color: var(--cyan);">[ DIFFICULTY ]</p>
+        <p class="box-label" style="color:var(--cyan);">[ DIFFICULTY ]</p>
         <div class="selector-container" id="difficulty-container">
           <button class="selector-btn" data-diff="easy">Crew</button>
           <button class="selector-btn active" data-diff="medium">Manager</button>
@@ -49,7 +45,7 @@
       </div>
 
       <div class="section-box">
-        <p class="box-label" style="color: var(--cyan);">[ DROP SPEED ]</p>
+        <p class="box-label" style="color:var(--cyan);">[ DROP SPEED ]</p>
         <div class="selector-container" id="speed-container">
           <button class="selector-btn" data-speed="2">2x</button>
           <button class="selector-btn active" data-speed="3">3x</button>
@@ -60,18 +56,18 @@
       </div>
 
       <div class="section-box">
-        <p class="box-label" style="color: var(--cyan);">[ LANE COLORS ]</p>
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <select id="colorSchemeSelect" style="flex: 1; padding: 8px; background: rgba(0,0,0,0.6); border: 1px solid var(--glass-border); color: var(--text-main); border-radius: 4px; font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 13px; touch-action: manipulation;">
+        <p class="box-label" style="color:var(--cyan);">[ LANE COLORS ]</p>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <select id="colorSchemeSelect" style="flex:1;padding:8px;background:rgba(0,0,0,0.6);border:1px solid var(--glass-border);color:var(--text-main);border-radius:4px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;touch-action:manipulation;">
             <option value="cyber">Cyber (Purple, Cyan, Gold, Red)</option>
             <option value="classic">Classic (Cyan, Purple, Pink, Cyan)</option>
             <option value="neon">Neon (Green, Cyan, Pink, Orange)</option>
           </select>
-          <div id="colorPreview" style="display: flex; gap: 3px; height: 32px; flex-shrink: 0;">
-            <div style="width: 32px; height: 32px; background: #8D3CFF; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px;"></div>
-            <div style="width: 32px; height: 32px; background: #20E8FF; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px;"></div>
-            <div style="width: 32px; height: 32px; background: #FFD700; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px;"></div>
-            <div style="width: 32px; height: 32px; background: #FF4757; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px;"></div>
+          <div id="colorPreview" style="display:flex;gap:3px;height:32px;flex-shrink:0;">
+            <div style="width:32px;height:32px;background:#8D3CFF;border:1px solid rgba(255,255,255,0.2);border-radius:2px;"></div>
+            <div style="width:32px;height:32px;background:#20E8FF;border:1px solid rgba(255,255,255,0.2);border-radius:2px;"></div>
+            <div style="width:32px;height:32px;background:#FFD700;border:1px solid rgba(255,255,255,0.2);border-radius:2px;"></div>
+            <div style="width:32px;height:32px;background:#FF4757;border:1px solid rgba(255,255,255,0.2);border-radius:2px;"></div>
           </div>
         </div>
       </div>
@@ -86,8 +82,8 @@
       </div>
 
       <div class="section-box touch-hint">
-        <p class="box-label" style="color: var(--pink); margin-bottom: 2px;">[ CONTROLS ]</p>
-        <p style="margin: 0; font-size: 12px;">Tap or swipe across the 4 lanes at the bottom of the screen in time with the arrows. No keyboard needed.</p>
+        <p class="box-label" style="color:var(--pink);margin-bottom:2px;">[ CONTROLS ]</p>
+        <p style="margin:0;font-size:12px;">Tap or swipe across the 4 lanes at the bottom of the screen in time with the arrows. No keyboard needed.</p>
       </div>
 
       <button class="primary-btn" id="startBtn" disabled>INITIALIZE UPLINK</button>
@@ -96,32 +92,26 @@
     </div>
 
     <div id="results-screen">
-      <h2 id="resTitle" style="color: var(--cyan);">AUDITION CLEARED</h2>
+      <h2 id="resTitle" style="color:var(--cyan);">AUDITION CLEARED</h2>
       <div class="trophy-icon" id="resIcon">🏆</div>
       <div class="results-score-row">
-        <div style="text-align: center;">
-          <p class="mini-label">FINAL SCORE</p>
-          <span id="resScore" class="score-value">0</span>
-        </div>
-        <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
-          <p class="mini-label" style="font-size: 9px;">RATING</p>
-          <div class="rank-badge"><span id="resRank">S</span></div>
-        </div>
+        <div style="text-align:center;"><p class="mini-label">FINAL SCORE</p><span id="resScore" class="score-value">0</span></div>
+        <div style="text-align:center;display:flex;flex-direction:column;align-items:center;"><p class="mini-label" style="font-size:9px;">RATING</p><div class="rank-badge"><span id="resRank">S</span></div></div>
       </div>
       <div class="results-stats">
         <p>MAX COMBO: <span id="resMaxCombo">0</span></p>
         <p>PERFECT: <span id="resPerfect">0</span></p>
-        <p>GOOD: <span id="resGood" style="color: var(--purple);">0</span></p>
-        <p>SYSTEM MISS: <span id="resMiss" style="color: #ff4757;">0</span></p>
+        <p>GOOD: <span id="resGood" style="color:var(--purple);">0</span></p>
+        <p>SYSTEM MISS: <span id="resMiss" style="color:#ff4757;">0</span></p>
       </div>
       <button class="primary-btn" id="menuBtn">DISCONNECT</button>
     </div>
 
     <div id="pause-screen">
-      <h2 style="color: var(--pink);">SYSTEM PAUSED</h2>
-      <p style="color: var(--text-muted); font-size: 12px; margin: 8px 0 16px 0; font-family: 'Orbitron';">AWAITING INPUT...</p>
-      <button class="primary-btn" id="resumeBtn" style="margin-bottom: 10px; background: linear-gradient(90deg, var(--cyan), var(--purple));">RESUME LINK</button>
-      <button class="primary-btn" id="quitBtn" style="background: rgba(0,0,0,0.8); border: 1px solid #ff4757; color: #ff4757;">ABORT MISSION</button>
+      <h2 style="color:var(--pink);">SYSTEM PAUSED</h2>
+      <p style="color:var(--text-muted);font-size:12px;margin:8px 0 16px 0;font-family:'Orbitron';">AWAITING INPUT…</p>
+      <button class="primary-btn" id="resumeBtn" style="margin-bottom:10px;background:linear-gradient(90deg,var(--cyan),var(--purple));">RESUME LINK</button>
+      <button class="primary-btn" id="quitBtn" style="background:rgba(0,0,0,0.8);border:1px solid #ff4757;color:#ff4757;">ABORT MISSION</button>
     </div>
 
     <div id="game-container">
@@ -129,15 +119,9 @@
         <button id="hudPauseBtn" aria-label="Pause">❚❚</button>
         <button id="hudFullscreenBtn" aria-label="Fullscreen">⛶</button>
         <div id="hudLifeWrap"><div id="hudLifeFill"></div></div>
-        <div id="hudScoreWrap">
-          <span id="hudScore">0</span>
-          <span id="hudCombo">0x</span>
-        </div>
+        <div id="hudScoreWrap"><span id="hudScore">0</span><span id="hudCombo">0x</span></div>
       </div>
-      <div id="hudProgressWrap">
-        <div id="hudProgressFill"></div>
-        <span id="hudTimeLeft">0:00</span>
-      </div>
+      <div id="hudProgressWrap"><div id="hudProgressFill"></div><span id="hudTimeLeft">0:00</span></div>
       <canvas id="gameCanvas"></canvas>
     </div>
 
