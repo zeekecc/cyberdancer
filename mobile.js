@@ -39,17 +39,17 @@ function initParticleCanvas() {
 window.addEventListener('resize', initParticleCanvas);
 initParticleCanvas();
 
-function spawnParticles(x, y, color, count = 6) {
+function spawnParticles(x, y, color, count = 8) {
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * 2 * Math.PI;
-    const speed = 60 + Math.random() * 100;
-    const size = 3 + Math.random() * 4;
+    const speed = 80 + Math.random() * 120;
+    const size = 3 + Math.random() * 5;
     particles.push({
       x, y,
       vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 20,
+      vy: Math.sin(angle) * speed - 30,
       life: 1,
-      decay: 0.025 + Math.random() * 0.03,
+      decay: 0.02 + Math.random() * 0.03,
       size,
       color: color || `hsl(${Math.random() * 360}, 80%, 70%)`,
     });
@@ -61,7 +61,7 @@ function updateParticles(delta) {
     const p = particles[i];
     p.x += p.vx * delta;
     p.y += p.vy * delta;
-    p.vy += 100 * delta;
+    p.vy += 120 * delta;
     p.life -= p.decay;
     if (p.life <= 0) particles.splice(i, 1);
   }
@@ -70,28 +70,13 @@ function updateParticles(delta) {
 function drawParticles() {
   particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
   for (const p of particles) {
-    particleCtx.globalAlpha = p.life * 0.4;
+    particleCtx.globalAlpha = p.life * 0.5;
     particleCtx.fillStyle = p.color;
     particleCtx.beginPath();
     particleCtx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
     particleCtx.fill();
   }
   particleCtx.globalAlpha = 1;
-}
-
-function spawnHoldLabel(x, y, text = 'HOLD COMPLETE') {
-  const el = document.createElement('div');
-  el.className = 'hold-label';
-  el.textContent = text;
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-  document.body.appendChild(el);
-  requestAnimationFrame(() => { el.classList.add('show'); });
-  setTimeout(() => {
-    el.classList.remove('show');
-    el.classList.add('fade');
-    setTimeout(() => el.remove(), 700);
-  }, 400);
 }
 
 let flashTimeout = null;
@@ -174,9 +159,6 @@ if (colorSchemeSelect) {
     const scheme = e.target.value;
     ARROW_COLORS = COLOR_SCHEMES[scheme] || COLOR_SCHEMES.cyber;
     updateColorPreview(scheme);
-    if (typeof drawArcadeArrow !== 'undefined' && drawArcadeArrow.cache) {
-      drawArcadeArrow.cache = {};
-    }
   });
   updateColorPreview(colorSchemeSelect.value);
 }
@@ -520,10 +502,6 @@ function resizeCanvas() {
   canvas.height = Math.round(cssH * dpr);
   LANE_WIDTH = canvas.width / LANE_COUNT;
   RECEPTOR_Y = canvas.height - BOTTOM_MARGIN_CSS * dpr;
-  // Clear cache for drawArcadeArrow
-  if (typeof drawArcadeArrow !== 'undefined' && drawArcadeArrow.cache) {
-    drawArcadeArrow.cache = {};
-  }
 }
 
 let resizeTimer = null;
@@ -766,7 +744,7 @@ function registerHit(note, grade, points, type, early) {
     triggerComboFlash();
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight / 2;
-    spawnParticles(cx, cy, null, 12);
+    spawnParticles(cx, cy, null, 15);
     milestoneEffects.push({ text: combo + ' COMBO!', progress: 0, lifetime: 60, scale: 0.5 });
   }
 }
@@ -837,7 +815,7 @@ function gameLoop(timestamp) {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Lane dividers (highway style)
+    // Lane dividers
     ctx.strokeStyle = 'rgba(32, 232, 255, 0.15)';
     ctx.setLineDash([10, 15]);
     ctx.lineWidth = 1.5;
@@ -908,112 +886,40 @@ function gameLoop(timestamp) {
   if (gamePhase !== 'results') requestAnimationFrame(gameLoop);
 }
 
-// ─── Classic arcade arrow with dot grid (re‑enabled, bigger size) ───
-function drawArcadeArrow(ctx, x, y, width, height, lane, fillColor, strokeColor, isReceptor = false, isHitFlash = false) {
-  drawArcadeArrow.cache = drawArcadeArrow.cache || {};
+// ─── Solid arrow for receptors (no dot grid) ───
+function drawSolidArrow(ctx, cx, cy, size, color, strokeColor, lineWidth, isPressed) {
+  const w = size * 0.9;
+  const h = size * 0.9;
+  const stem = w * 0.28;
+  const head = h * 0.42;
+  const headW = w * 0.58;
 
-  const isUnpressedReceptor = isReceptor && fillColor === 'rgba(255, 255, 255, 0.05)';
-  const state = isUnpressedReceptor ? 'unpressed' : (isReceptor ? 'pressed' : (isHitFlash ? 'flash' : 'normal'));
-  
-  const wKey = Math.round(width);
-  const hKey = Math.round(height);
-  
-  const cacheKey = `${lane}_${state}_${wKey}_${hKey}`;
+  ctx.beginPath();
+  ctx.moveTo(0, -h / 2);
+  ctx.lineTo(headW, -h / 2 + head);
+  ctx.lineTo(stem, -h / 2 + head);
+  ctx.lineTo(stem, h / 2);
+  ctx.lineTo(-stem, h / 2);
+  ctx.lineTo(-stem, -h / 2 + head);
+  ctx.lineTo(-headW, -h / 2 + head);
+  ctx.closePath();
 
-  const padding = 40; 
-  const canvasSize = Math.max(wKey, hKey) + padding * 2;
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+}
 
-  if (!drawArcadeArrow.cache[cacheKey]) {
-    const offscreen = document.createElement('canvas');
-    offscreen.width = canvasSize;
-    offscreen.height = canvasSize;
-    const octx = offscreen.getContext('2d');
-
-    octx.translate(canvasSize / 2, canvasSize / 2);
-
-    let rotation = (lane === 0 ? -Math.PI / 2 : (lane === 1 ? Math.PI : (lane === 2 ? 0 : Math.PI / 2)));
-    octx.rotate(rotation);
-
-    // Increased arrow size: 0.9 → 1.0 (larger)
-    let boxSize = Math.min(width, height) * 1.0;
-    let w = boxSize; 
-    let h = boxSize; 
-
-    const traceArrow = () => {
-      const stem = w * 0.28;
-      const head = h * 0.42;
-      const headW = w * 0.58;
-      
-      octx.beginPath();
-      octx.moveTo(0, -h / 2);
-      octx.lineTo(headW, -h / 2 + head);
-      octx.lineTo(stem, -h / 2 + head);
-      octx.lineTo(stem, h / 2);
-      octx.lineTo(-stem, h / 2);
-      octx.lineTo(-stem, -h / 2 + head);
-      octx.lineTo(-headW, -h / 2 + head);
-      octx.closePath();
-    };
-
-    const baseColor = ARROW_COLORS[lane];
-    const glowColor = isHitFlash ? '#ffffff' : baseColor;
-
-    octx.lineJoin = 'round';
-    octx.lineCap = 'round';
-
-    octx.save();
-    traceArrow();
-    octx.clip(); 
-    
-    octx.fillStyle = isUnpressedReceptor ? 'rgba(5, 2, 10, 0.6)' : 'rgba(10, 5, 20, 0.85)';
-    octx.fill();
-
-    octx.fillStyle = glowColor;
-    const dotSpacing = 5;
-    const dotSize = 2;
-    
-    if (isUnpressedReceptor) {
-        octx.globalAlpha = 0.15; 
-    } else {
-        octx.globalAlpha = isHitFlash ? 1.0 : 0.75;
-    }
-    
-    for (let dx = -w; dx <= w; dx += dotSpacing) {
-      for (let dy = -h; dy <= h; dy += dotSpacing) {
-         octx.fillRect(dx - dotSize/2, dy - dotSize/2, dotSize, dotSize);
-      }
-    }
-    octx.restore();
-    
-    if (!isUnpressedReceptor) {
-        octx.shadowBlur = isHitFlash ? 30 : (isReceptor ? 20 : 15);
-        octx.shadowColor = glowColor;
-    }
-
-    traceArrow();
-    
-    octx.lineWidth = 7;
-    octx.strokeStyle = isUnpressedReceptor ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.6)';
-    octx.stroke();
-
-    octx.lineWidth = 3;
-    if (isUnpressedReceptor) {
-        octx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; 
-    } else if (isReceptor) {
-        octx.strokeStyle = '#ffffff'; 
-    } else {
-        octx.strokeStyle = strokeColor; 
-    }
-    octx.stroke();
-
-    drawArcadeArrow.cache[cacheKey] = offscreen;
-  }
-
-  ctx.drawImage(
-    drawArcadeArrow.cache[cacheKey], 
-    (x + width / 2) - (canvasSize / 2), 
-    (y + height / 2) - (canvasSize / 2)
-  );
+// ─── Circle for notes ───
+function drawNoteCircle(ctx, cx, cy, radius, color, borderColor, lineWidth) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
 }
 
 function drawUI() {
@@ -1022,7 +928,7 @@ function drawUI() {
     let width = LANE_WIDTH;
     let isPressedActive = pressedLanes[i] && gamePhase === 'playing';
 
-    // Lane glow on press
+    // Lane glow
     if (isPressedActive) {
       ctx.save();
       let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -1043,8 +949,20 @@ function drawUI() {
     ctx.strokeRect(xPos + 6, RECEPTOR_Y - 32, width - 12, 64);
     ctx.restore();
 
-    // Draw arcade arrow with larger size (boxSize = 1.0 inside function)
-    drawArcadeArrow(ctx, xPos + 6, RECEPTOR_Y - 32, width - 12, 64, i, isPressedActive ? ARROW_COLORS[i] : 'rgba(255, 255, 255, 0.05)', isPressedActive ? '#ffffff' : 'rgba(255, 255, 255, 0.3)', true, false);
+    // Draw solid arrow (larger)
+    const arrowSize = Math.min(width - 12, 64) * 0.9; // bigger than before
+    const cx = xPos + width / 2;
+    const cy = RECEPTOR_Y;
+    const color = isPressedActive ? ARROW_COLORS[i] : 'rgba(255,255,255,0.3)';
+    const stroke = isPressedActive ? '#ffffff' : 'rgba(255,255,255,0.5)';
+    const lw = isPressedActive ? 4 : 2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    const rotation = (i === 0 ? -Math.PI / 2 : (i === 1 ? Math.PI : (i === 2 ? 0 : Math.PI / 2)));
+    ctx.rotate(rotation);
+    drawSolidArrow(ctx, 0, 0, arrowSize, color, stroke, lw, isPressedActive);
+    ctx.restore();
   }
 }
 
@@ -1080,13 +998,13 @@ function updateAndDrawNotes(currentSongTime) {
 
         holdEffects.push({ lane: note.lane, x: note.lane * LANE_WIDTH + LANE_WIDTH / 2, y: RECEPTOR_Y, progress: 0, lifetime: 40, color: ARROW_COLORS[note.lane] });
 
+        // Particle burst only – no label
         const rect = canvas.getBoundingClientRect();
         const scaleX = rect.width / canvas.width;
         const scaleY = rect.height / canvas.height;
         const screenX = rect.left + (note.lane * LANE_WIDTH + LANE_WIDTH / 2) * scaleX;
         const screenY = rect.top + RECEPTOR_Y * scaleY;
-        spawnParticles(screenX, screenY, ARROW_COLORS[note.lane], 6);
-        spawnHoldLabel(screenX, screenY, 'HOLD COMPLETE');
+        spawnParticles(screenX, screenY, ARROW_COLORS[note.lane], 10);
 
         continue;
       }
@@ -1107,7 +1025,17 @@ function updateAndDrawNotes(currentSongTime) {
 
     if (note.hit) {
       if (note.hitAnim > 0) {
-        drawArcadeArrow(ctx, (note.lane * LANE_WIDTH) + 6, RECEPTOR_Y - 32, LANE_WIDTH - 12, 64, note.lane, '#ffffff', ARROW_COLORS[note.lane], false, true);
+        // Show hit flash on receptor (arrow)
+        ctx.save();
+        ctx.globalAlpha = 0.8;
+        const arrowSize = Math.min(LANE_WIDTH - 12, 64) * 0.9;
+        const cx = note.lane * LANE_WIDTH + LANE_WIDTH / 2;
+        const cy = RECEPTOR_Y;
+        ctx.translate(cx, cy);
+        const rotation = (note.lane === 0 ? -Math.PI / 2 : (note.lane === 1 ? Math.PI : (note.lane === 2 ? 0 : Math.PI / 2)));
+        ctx.rotate(rotation);
+        drawSolidArrow(ctx, 0, 0, arrowSize, '#ffffff', ARROW_COLORS[note.lane], 5, true);
+        ctx.restore();
         note.hitAnim--;
       }
       continue;
@@ -1119,6 +1047,16 @@ function updateAndDrawNotes(currentSongTime) {
     let noteY = RECEPTOR_Y - (timeUntilHit * scrollSpeed);
     if (noteY < -100) break;
     if (noteY <= canvas.height + 60) {
+      // Draw note as circle
+      const radius = Math.min(LANE_WIDTH - 12, 64) * 0.3;
+      const cx = note.lane * LANE_WIDTH + LANE_WIDTH / 2;
+      const cy = noteY;
+      ctx.save();
+      ctx.globalAlpha = 0.8;
+      drawNoteCircle(ctx, cx, cy, radius, ARROW_COLORS[note.lane], '#ffffff', 3);
+      ctx.restore();
+
+      // Hold tail (if hold note)
       if (note.isHold) {
         let xPos = (note.lane * LANE_WIDTH) + 6;
         let width = LANE_WIDTH - 12;
@@ -1132,7 +1070,6 @@ function updateAndDrawNotes(currentSongTime) {
         ctx.fillRect(xPos + width / 4, noteY, width / 2, tailPixelLength);
         ctx.restore();
       }
-      drawArcadeArrow(ctx, (note.lane * LANE_WIDTH) + 6, noteY - 32, LANE_WIDTH - 12, 64, note.lane, ARROW_COLORS[note.lane], '#ffffff', false, false);
     }
   }
 }
