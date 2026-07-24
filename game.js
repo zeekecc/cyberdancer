@@ -67,14 +67,11 @@ function drawParticles() {
   for (const p of particles) {
     particleCtx.globalAlpha = p.life;
     particleCtx.fillStyle = p.color;
-    particleCtx.shadowBlur = 20;
-    particleCtx.shadowColor = p.color;
     particleCtx.beginPath();
     particleCtx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
     particleCtx.fill();
   }
   particleCtx.globalAlpha = 1;
-  particleCtx.shadowBlur = 0;
 }
 
 function spawnHoldLabel(x, y, text = 'HOLD COMPLETE') {
@@ -137,6 +134,25 @@ let previewGain = null;
 
 let holdEffects = [];
 let milestoneEffects = [];
+
+// ── Performance caches ──────────────────────────────────────────────────
+// Avoids recreating LinearGradients & shadowBlur ops every frame.
+let _laneGradCache = {}, _laneGradCacheH = 0;
+const _judgmentCache = {};   // pre-rendered glow text per unique label+colour
+let _comboGrad = null;
+
+function getLaneGrad(lane) {
+  if (_laneGradCacheH !== canvas.height) {
+    _laneGradCache = {}; _laneGradCacheH = canvas.height; _comboGrad = null;
+  }
+  if (!_laneGradCache[lane]) {
+    const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    g.addColorStop(0, 'rgba(255,255,255,0)');
+    g.addColorStop(1, ARROW_COLORS[lane]);
+    _laneGradCache[lane] = g;
+  }
+  return _laneGradCache[lane];
+}
 
 const LANE_COUNT = 4;
 const LANE_WIDTH = canvas.width / LANE_COUNT;
@@ -602,7 +618,7 @@ startBtn.addEventListener('click', () => {
   resultsScreen.style.display = 'none';
   pauseScreen.style.display = 'none';
   gameContainer.style.display = 'flex';
-  sidebarTrackName.innerText = `${currentTrackMeta.artist} - ${currentTrackMeta.title}`;
+  sidebarTrackName.innerText = `${currentTrackMeta.title} - ${currentTrackMeta.artist}`;
   sidebarBpm.innerText = estimatedBPM;
   sidebarDuration.innerText = formatTime(audioBuffer.duration);
   score = 0;
@@ -963,11 +979,8 @@ function drawUI(currentSongTime) {
     let width = LANE_WIDTH;
     if (pressedLanes[i] && gamePhase === 'playing') {
       ctx.save();
-      let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      grad.addColorStop(0, 'rgba(255,255,255,0)');
-      grad.addColorStop(1, ARROW_COLORS[i]);
       ctx.globalAlpha = 0.3;
-      ctx.fillStyle = grad;
+      ctx.fillStyle = getLaneGrad(i);
       ctx.fillRect(xPos, 0, width, canvas.height);
       ctx.restore();
     }
@@ -1142,12 +1155,8 @@ function updateAndDrawNotes(currentSongTime) {
       let width = LANE_WIDTH - 12;
       let tailHeight = ((holdEndTime - currentSongTime) / note.holdDuration) * (note.holdDuration * scrollSpeed);
       ctx.save();
-      let holdGrad = ctx.createLinearGradient(0, JUDGMENT_LINE_Y, 0, JUDGMENT_LINE_Y + tailHeight);
-      holdGrad.addColorStop(0, '#ffffff');
-      holdGrad.addColorStop(0.2, ARROW_COLORS[note.lane]);
-      holdGrad.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = holdGrad;
-      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = ARROW_COLORS[note.lane];
+      ctx.globalAlpha = 0.65;
       ctx.fillRect(xPos + width / 4, JUDGMENT_LINE_Y, width / 2, tailHeight);
       ctx.restore();
       continue;
@@ -1172,11 +1181,8 @@ function updateAndDrawNotes(currentSongTime) {
         let width = LANE_WIDTH - 12;
         let tailPixelLength = note.holdDuration * scrollSpeed;
         ctx.save();
-        let holdGrad = ctx.createLinearGradient(0, noteY, 0, noteY + tailPixelLength);
-        holdGrad.addColorStop(0, ARROW_COLORS[note.lane]);
-        holdGrad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = holdGrad;
-        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = ARROW_COLORS[note.lane];
+        ctx.globalAlpha = 0.55;
         ctx.fillRect(xPos + width / 4, noteY, width / 2, tailPixelLength);
         ctx.restore();
       }
@@ -1193,8 +1199,6 @@ function drawHoldEffects() {
     const radius = 20 + ef.progress * 60;
     ctx.save();
     ctx.globalAlpha = alpha * 0.8;
-    ctx.shadowBlur = 30;
-    ctx.shadowColor = ef.color;
     ctx.strokeStyle = ef.color;
     ctx.lineWidth = 4 * (1 - ef.progress * 0.5);
     ctx.beginPath();
@@ -1219,8 +1223,6 @@ function drawMilestoneEffects() {
     ctx.textBaseline = 'middle';
     const fontSize = 50 * scale;
     ctx.font = `900 ${fontSize}px "Orbitron", sans-serif`;
-    ctx.shadowBlur = 40;
-    ctx.shadowColor = '#20E8FF';
     const grad = ctx.createLinearGradient(0, canvas.height / 2 - 100, 0, canvas.height / 2 + 100);
     grad.addColorStop(0, '#ffffff');
     grad.addColorStop(1, '#20E8FF');
@@ -1235,28 +1237,40 @@ function drawMilestoneEffects() {
 
 function drawJudgment() {
   if (feedbackTimer > 0) {
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.translate(canvas.width / 2, (canvas.height / 2) + 65);
-    let scale = 1 + (feedbackTimer / 35) * 0.25;
-    ctx.scale(scale, scale);
-    ctx.font = "900 36px 'Orbitron', sans-serif";
-    
     let color;
-    if (feedbackText === "PERFECT!") {
-      color = "#20E8FF"; 
-    } else if (feedbackText === "GOOD") {
-      color = lastHitEarly ? "#FFD700" : "#FF4757"; 
-    } else if (feedbackText === "SYNCED!") {
-      color = "#FF3ED8"; 
-    } else {
-      color = "#ff4757"; 
+    if (feedbackText === "PERFECT!") color = "#20E8FF";
+    else if (feedbackText === "GOOD") color = lastHitEarly ? "#FFD700" : "#FF4757";
+    else if (feedbackText === "SYNCED!") color = "#FF3ED8";
+    else color = "#ff4757";
+
+    // Pre-render glow text once per unique (label, colour) combination.
+    // shadowBlur on an offscreen canvas costs nothing in the hot render path.
+    const cacheKey = feedbackText + color;
+    if (!_judgmentCache[cacheKey]) {
+      const fontSize = 36, pad = 35;
+      const off = document.createElement('canvas');
+      off.width  = Math.ceil(fontSize * feedbackText.length * 0.7 + pad * 2);
+      off.height = fontSize * 2 + pad * 2;
+      const oc = off.getContext('2d');
+      oc.font = `900 ${fontSize}px 'Orbitron', sans-serif`;
+      oc.textAlign = 'center';
+      oc.textBaseline = 'middle';
+      oc.shadowBlur = 25;
+      oc.shadowColor = color;
+      oc.fillStyle = color;
+      oc.fillText(feedbackText, off.width / 2, off.height / 2);
+      _judgmentCache[cacheKey] = off;
     }
-    
-    ctx.shadowBlur = 25;
-    ctx.shadowColor = color;
-    ctx.fillStyle = color;
-    ctx.fillText(feedbackText, 0, 0);
+    const off = _judgmentCache[cacheKey];
+    const scale = 1 + (feedbackTimer / 35) * 0.25;
+    const cx = canvas.width / 2, cy = (canvas.height / 2) + 65;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, feedbackTimer / 8);
+    ctx.drawImage(off,
+      cx - (off.width  * scale) / 2,
+      cy - (off.height * scale) / 2,
+      off.width * scale, off.height * scale
+    );
     ctx.restore();
     feedbackTimer--;
   }
@@ -1271,20 +1285,16 @@ function drawCombo() {
     ctx.translate(canvas.width / 2, (canvas.height / 2) - 20);
     ctx.scale(1 + (comboAnim / 15) * 0.35, 1 + (comboAnim / 15) * 0.35);
     
-    ctx.shadowBlur = 35;
-    ctx.shadowColor = "#20E8FF";
-    
     ctx.font = "900 100px 'Orbitron', sans-serif";
-    let grad = ctx.createLinearGradient(0, -50, 0, 20);
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(1, '#20E8FF');
-    ctx.fillStyle = grad;
+    if (!_comboGrad) {
+      _comboGrad = ctx.createLinearGradient(0, -50, 0, 20);
+      _comboGrad.addColorStop(0, '#ffffff');
+      _comboGrad.addColorStop(1, '#20E8FF');
+    }
+    ctx.fillStyle = _comboGrad;
     ctx.fillText(combo, 0, 0);
-    
     ctx.font = "700 18px 'Rajdhani', sans-serif";
     ctx.fillStyle = "#FF3ED8";
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = "#FF3ED8";
     ctx.fillText("CHAIN LINK", 0, 42);
     ctx.restore();
   }

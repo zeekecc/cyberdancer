@@ -130,6 +130,23 @@ var previewGain = null;
 var holdEffects = [];
 var milestoneEffects = [];
 
+// ── Performance caches ──────────────────────────────────────────────────
+var _laneGradCache = {}, _laneGradCacheH = 0;
+var _comboGrad = null;
+
+function getLaneGrad(lane) {
+  if (_laneGradCacheH !== canvas.height) {
+    _laneGradCache = {}; _laneGradCacheH = canvas.height; _comboGrad = null;
+  }
+  if (!_laneGradCache[lane]) {
+    var g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    g.addColorStop(0, 'rgba(255,255,255,0)');
+    g.addColorStop(1, ARROW_COLORS[lane]);
+    _laneGradCache[lane] = g;
+  }
+  return _laneGradCache[lane];
+}
+
 var LANE_COUNT = 4;
 var LANE_WIDTH = 0;
 var RECEPTOR_Y = 0;
@@ -319,7 +336,7 @@ fileInput.addEventListener('change', function(e) {
       manualAudioBuffer = audioBuffer;
       manualTrackMeta = { artist: currentTrackMeta.artist, title: currentTrackMeta.title };
       manualEstimatedBPM = estimatedBPM;
-      if (playlistToggleText) playlistToggleText.textContent = currentTrackMeta.artist + ' - ' + currentTrackMeta.title + ' (Manual)';
+      if (playlistToggleText) playlistToggleText.textContent = currentTrackMeta.title + ' - ' + currentTrackMeta.artist + ' (Manual)';
       startBtn.innerText = "INITIALIZE UPLINK";
       startBtn.disabled = false;
     } catch (err) {
@@ -420,7 +437,7 @@ async function selectPlaylistTrack(track, itemEl) {
     applyMetaToUI();
     startBtn.innerText = "INITIALIZE UPLINK";
     startBtn.disabled = false;
-    if (playlistToggleText) playlistToggleText.textContent = track.artist + ' - ' + track.title;
+    if (playlistToggleText) playlistToggleText.textContent = track.title + ' - ' + track.artist;
     closePlaylistDropdown();
     startPreviewLoop();
   } catch (err) {
@@ -570,6 +587,7 @@ function resizeCanvas() {
   if (typeof drawArcadeArrow !== 'undefined' && drawArcadeArrow.cache) {
     drawArcadeArrow.cache = {};
   }
+  _laneGradCache = {}; _laneGradCacheH = 0; _comboGrad = null;
 }
 
 var resizeTimer = null;
@@ -1092,11 +1110,8 @@ function drawUI() {
 
     if (isPressedActive) {
       ctx.save();
-      var grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      grad.addColorStop(0, 'rgba(255,255,255,0)');
-      grad.addColorStop(1, ARROW_COLORS[i]);
       ctx.globalAlpha = 0.2;
-      ctx.fillStyle = grad;
+      ctx.fillStyle = getLaneGrad(i);
       ctx.fillRect(xPos, 0, width, canvas.height);
       ctx.restore();
     }
@@ -1161,11 +1176,7 @@ function updateAndDrawNotes(currentSongTime) {
       var width = LANE_WIDTH - 12;
       var remaining = (holdEndTime - currentSongTime) * scrollSpeed;
       ctx.save();
-      var holdGrad = ctx.createLinearGradient(0, RECEPTOR_Y, 0, RECEPTOR_Y - remaining);
-      holdGrad.addColorStop(0, '#ffffff');
-      holdGrad.addColorStop(0.2, ARROW_COLORS[note.lane]);
-      holdGrad.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = holdGrad;
+      ctx.fillStyle = ARROW_COLORS[note.lane];
       ctx.globalAlpha = 0.6;
       ctx.fillRect(xPos + width / 4, RECEPTOR_Y - remaining, width / 2, remaining);
       ctx.restore();
@@ -1200,11 +1211,7 @@ function updateAndDrawNotes(currentSongTime) {
         var tailHeight = tailEnd - tailStart;
         if (tailHeight > 0) {
           ctx.save();
-          var holdGrad = ctx.createLinearGradient(0, tailStart, 0, tailEnd);
-          holdGrad.addColorStop(0, 'rgba(0,0,0,0)');
-          holdGrad.addColorStop(0.2, ARROW_COLORS[note.lane]);
-          holdGrad.addColorStop(1, ARROW_COLORS[note.lane]);
-          ctx.fillStyle = holdGrad;
+          ctx.fillStyle = ARROW_COLORS[note.lane];
           ctx.globalAlpha = 0.5;
           ctx.fillRect(xPos + width / 4, tailStart, width / 2, tailHeight);
           ctx.restore();
@@ -1286,10 +1293,12 @@ function drawCombo() {
     ctx.translate(canvas.width / 2, canvas.height * 0.28);
     ctx.scale(1 + (comboAnim / 15) * 0.25, 1 + (comboAnim / 15) * 0.25);
     ctx.font = "900 " + Math.round(canvas.width * 0.2) + "px 'Orbitron', sans-serif";
-    var grad = ctx.createLinearGradient(0, -50, 0, 20);
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(1, '#20E8FF');
-    ctx.fillStyle = grad;
+    if (!_comboGrad) {
+      _comboGrad = ctx.createLinearGradient(0, -50, 0, 20);
+      _comboGrad.addColorStop(0, '#ffffff');
+      _comboGrad.addColorStop(1, '#20E8FF');
+    }
+    ctx.fillStyle = _comboGrad;
     ctx.fillText(combo, 0, 0);
     ctx.font = "700 " + Math.round(canvas.width * 0.04) + "px 'Rajdhani', sans-serif";
     ctx.fillStyle = "#FF3ED8";

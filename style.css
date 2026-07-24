@@ -94,6 +94,15 @@ p {
   position: relative;
 }
 
+/* Overlay screens appear over the game canvas, not the video,
+   so backdrop-filter blur is wasted GPU work there. */
+#pause-screen,
+#results-screen {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(5, 5, 12, 0.92);
+}
+
 #menu::-webkit-scrollbar,
 #pause-screen::-webkit-scrollbar,
 #results-screen::-webkit-scrollbar {
