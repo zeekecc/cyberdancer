@@ -302,8 +302,8 @@ function deriveMetaFromFilename(name) {
 }
 
 function applyMetaToUI() {
-  document.getElementById('metaArtist').innerText = currentTrackMeta.artist;
   document.getElementById('metaTitle').innerText = currentTrackMeta.title;
+  document.getElementById('metaArtist').innerText = currentTrackMeta.artist;
   document.getElementById('metaDuration').innerText = formatTime(audioBuffer.duration);
   document.getElementById('metaBpm').innerText = estimatedBPM;
   document.getElementById('metaNotes').innerText = notes.length;
@@ -328,13 +328,13 @@ fileInput.addEventListener('change', function(e) {
         new Promise(function(_, reject) { setTimeout(function() { reject(new Error("Timeout")); }, 10000); })
       ]);
       var meta = deriveMetaFromFilename(file.name);
-      currentTrackMeta.artist = meta.artist;
       currentTrackMeta.title = meta.title;
+      currentTrackMeta.artist = meta.artist;
       estimatedBPM = estimateBPM(audioBuffer);
       notes = autoGenerateChart(audioBuffer, difficultySetting);
       applyMetaToUI();
       manualAudioBuffer = audioBuffer;
-      manualTrackMeta = { artist: currentTrackMeta.artist, title: currentTrackMeta.title };
+      manualTrackMeta = { title: currentTrackMeta.title, artist: currentTrackMeta.artist };
       manualEstimatedBPM = estimatedBPM;
       if (playlistToggleText) playlistToggleText.textContent = currentTrackMeta.title + ' - ' + currentTrackMeta.artist + ' (Manual)';
       startBtn.innerText = "INITIALIZE UPLINK";
@@ -372,12 +372,12 @@ function normalizePlaylist(list) {
     if (typeof item === 'string') {
       var file = item.includes('/') ? item : 'music/' + item;
       var meta = deriveMetaFromFilename(item.split('/').pop());
-      return { file: file, artist: meta.artist, title: meta.title };
+      return { file: file, title: meta.title, artist: meta.artist };
     }
     if (item && item.file) {
       var file = item.file.includes('/') ? item.file : 'music/' + item.file;
       var fallback = deriveMetaFromFilename(item.file.split('/').pop());
-      return { file: file, artist: item.artist || fallback.artist, title: item.title || fallback.title };
+      return { file: file, title: item.title || fallback.title, artist: item.artist || fallback.artist };
     }
     return null;
   }).filter(Boolean);

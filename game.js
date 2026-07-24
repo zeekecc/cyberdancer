@@ -353,7 +353,7 @@ fileInput.addEventListener('change', async (e) => {
     manualAudioBuffer = audioBuffer;
     manualTrackMeta = { artist: currentTrackMeta.artist, title: currentTrackMeta.title };
     manualEstimatedBPM = estimatedBPM;
-    if (playlistToggleText) playlistToggleText.textContent = `${currentTrackMeta.artist} - ${currentTrackMeta.title} (Manual)`;
+    if (playlistToggleText) playlistToggleText.textContent = `${currentTrackMeta.title} - ${currentTrackMeta.artist} (Manual)`;
     startBtn.innerText = "INITIALIZE UPLINK";
     startBtn.disabled = false;
   } catch (err) {
@@ -453,7 +453,7 @@ async function selectPlaylistTrack(track, itemEl) {
     applyMetaToUI();
     startBtn.innerText = "INITIALIZE UPLINK";
     startBtn.disabled = false;
-    if (playlistToggleText) playlistToggleText.textContent = `${track.artist} - ${track.title}`;
+    if (playlistToggleText) playlistToggleText.textContent = `${track.title} - ${track.artist}`;
     closePlaylistDropdown();
     startPreviewLoop();
   } catch (err) {
