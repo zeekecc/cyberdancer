@@ -233,7 +233,6 @@ input[type=file] {
 
 .playlist-item {
   display: flex;
-  flex-direction: column-reverse;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
